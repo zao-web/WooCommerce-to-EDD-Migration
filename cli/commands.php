@@ -384,61 +384,6 @@ class Commands {
 
 					$cli->success_message( "Old File : " . $wc_file[ 'file' ] );
 
-					// To download file from the url
-					//		$file = new WP_Http();
-					//		$file = $file->request( $wc_file[ 'file' ] );
-
-					//		if( $file[ 'response' ][ 'code' ] != 200 ) {
-					//			$temp_log_str = var_export( $file, true );
-					//			$log_str .= $temp_log_str;
-					//			echo $temp_log_str;
-					//			$temp_log_str = "\nDownloadable File " . $wc_file[ 'name' ] . " could not be set for Product ... because old file could not be downloaded\n";
-					//			$log_str .= $temp_log_str;
-					//			echo $temp_log_str;
-					//			$temp_log_str = var_export( $wc_file[ 'file' ], true );
-					//			$log_str .= $temp_log_str;
-					//			echo $temp_log_str;
-					//			continue;
-					//		}
-
-					// Upload downloaded url to WP Upload directory
-					//		$attachment = wp_upload_bits( basename( $wc_file[ 'file' ] ), null, $file['body'], date("Y-m", strtotime( $file[ 'headers' ][ 'last-modified' ] ) ) );
-					//		if( ! empty( $attachment[ 'error' ] ) ) {
-					//			$temp_log_str = var_export( $attachment, true );
-					//			$log_str .= $temp_log_str;
-					//			echo $temp_log_str;
-					//			$temp_log_str = "\nDownloadable File " . $wc_file[ 'name' ] . " could not be set for Product ... because new file could not be uploaded.\n";
-					//			$log_str .= $temp_log_str;
-					//			echo $temp_log_str;
-					//			$temp_log_str = var_export( $wc_file[ 'file' ], true );
-					//			$log_str .= $temp_log_str;
-					//			echo $temp_log_str;
-					//			continue;
-					//		}
-
-					//		$filetype = wp_check_filetype( basename( $attachment[ 'file' ] ), null );
-					//		$wp_upload_dir = wp_upload_dir();
-
-					// Insert attachment for uploaded file
-					//		$postinfo = array(
-					//			'guid'           => $wp_upload_dir[ 'url' ] . '/' . basename( $attachment[ 'file' ] ),
-					//			'post_mime_type' => $filetype[ 'type' ],
-					//			'post_title'     => preg_replace( '/\.[^.]+$/', '', basename( $attachment[ 'file' ] ) ),
-					//			'post_content'   => '',
-					//			'post_status'    => 'inherit'
-					//		);
-					//		$filename = $attachment[ 'file' ];
-					//		$attach_id = wp_insert_attachment( $postinfo, $filename, $edd_product_id );
-					//		if( empty( $attach_id ) ) {
-					//			$temp_log_str = "\nDownloadable File " . $wc_file[ 'name' ] . " could not be set for Product ...\n";
-					//			$log_str .= $temp_log_str;
-					//			echo $temp_log_str;
-					//			$temp_log_str = var_export( $wc_file[ 'file' ], true );
-					//			$log_str .= $temp_log_str;
-					//			echo $temp_log_str;
-					//			continue;
-					//		}
-
 					// Prepare aray entry for downloaded file
 					$edd_dl_files[] = array(
 						//			'attachment_id' => $attach_id,
