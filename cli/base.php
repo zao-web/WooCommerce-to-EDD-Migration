@@ -1,5 +1,5 @@
 <?php
-namespace Example_WP_CLI\CLI;
+namespace Migrate_Woo\CLI;
 use WP_CLI;
 use WP_CLI\Utils as Utils;
 
@@ -214,6 +214,21 @@ class Base {
 		return $this;
 	}
 
+	/**
+	 * Outputs a WP_CLI warning message.
+	 *
+	 * @since  0.1.0
+	 *
+	 * @param  string $msg  The message to relay.
+	 * @param  mixed  $data Optional data to print out.
+	 *
+	 * @return Base for chaining.
+	 */
+	public function warning_message( $msg, $data = null ) {
+		WP_CLI::warning( $data ? $msg . ': ' . print_r( $data, true ) : $msg );
+
+		return $this;
+	}
 	/**
 	 * Outputs a WP_CLI message as well as logs the message.
 	 *

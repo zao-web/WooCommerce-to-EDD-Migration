@@ -1,5 +1,5 @@
 <?php
-namespace Example_WP_CLI\CLI;
+namespace Migrate_Woo\CLI;
 use Exception;
 use WP_CLI;
 

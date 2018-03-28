@@ -1,8 +1,8 @@
 <?php
 /**
- * Plugin Name: Example WP-CLI Plugin
+ * Plugin Name: WP-CLI WooCommerce to EDD Migration Script
  * Plugin URI:  https://github.com/zao-web/cli-framework
- * Description: An example plugin built on top of the CLI Framework
+ * Description: Handles migrating WooCommerce to EDD (Including support for Subscriptions and API Keys)
  * Version:     0.1.0
  * Author:      Zao
  * Author URI:  https://zao.is
@@ -37,10 +37,10 @@
  * @param  string $class_name Name of the class being requested.
  * @return void
  */
-function example_wp_cli_autoload_classes( $class_name ) {
+function migrate_woo_autoload_classes( $class_name ) {
 
 	// project-specific namespace prefix
-	$prefix = 'Example_WP_CLI\\';
+	$prefix = 'Migrate_Woo\\';
 
 	// does the class use the namespace prefix?
 	$len = strlen( $prefix );
@@ -51,7 +51,7 @@ function example_wp_cli_autoload_classes( $class_name ) {
 	}
 
 	// base directory for the namespace prefix
-	$base_dir = trailingslashit( example_wp_cli()->path );
+	$base_dir = trailingslashit( migrate_woo()->path );
 
 	// get the relative class name
 	$relative_class = substr( $class_name, $len );
@@ -70,14 +70,14 @@ function example_wp_cli_autoload_classes( $class_name ) {
 	}
 }
 
-spl_autoload_register( 'example_wp_cli_autoload_classes' );
+spl_autoload_register( 'migrate_woo_autoload_classes' );
 
 /**
  * Main initiation class
  *
  * @since  0.1.0
  */
-final class Example_WP_CLI_Plugin {
+final class Migrate_Woo_Plugin {
 
 	/**
 	 * Current version
@@ -114,7 +114,7 @@ final class Example_WP_CLI_Plugin {
 	/**
 	 * Singleton instance of plugin
 	 *
-	 * @var Example_WP_CLI_Plugin
+	 * @var Migrate_Woo_Plugin
 	 * @since  0.1.0
 	 */
 	protected static $single_instance = null;
@@ -123,7 +123,7 @@ final class Example_WP_CLI_Plugin {
 	 * Creates or returns an instance of this class.
 	 *
 	 * @since  0.1.0
-	 * @return Example_WP_CLI_Plugin A single instance of this class.
+	 * @return Migrate_Woo_Plugin A single instance of this class.
 	 */
 	public static function get_instance() {
 		if ( null === self::$single_instance ) {
@@ -153,13 +153,13 @@ final class Example_WP_CLI_Plugin {
 	public function plugin_classes() {
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
 
-			Example_WP_CLI\CLI\Commands::set_log_dir( $this->path . 'logs' );
+			Migrate_Woo\CLI\Commands::set_log_dir( $this->path . 'logs' );
 
 			/*
-			 * To see commands, `wp example_wp_cli`.
-			 * Then, for more information on a specific command, 'wp help example_wp_cli <command>'.
+			 * To see commands, `wp migrate_woo`.
+			 * Then, for more information on a specific command, 'wp help migrate_woo <command>'.
 			 */
-			WP_CLI::add_command( 'example_wp_cli', 'Example_WP_CLI\\CLI\\Commands' );
+			WP_CLI::add_command( 'migrate_woo', 'Migrate_Woo\\CLI\\Commands' );
 		}
 	}
 
@@ -204,18 +204,18 @@ final class Example_WP_CLI_Plugin {
 
 
 /**
- * Grab the Example_WP_CLI_Plugin object and return it.
- * Wrapper for Example_WP_CLI_Plugin::get_instance()
+ * Grab the Migrate_Woo_Plugin object and return it.
+ * Wrapper for Migrate_Woo_Plugin::get_instance()
  *
  * @since  0.1.0
- * @return Example_WP_CLI_Plugin  Singleton instance of plugin class.
+ * @return Migrate_Woo_Plugin  Singleton instance of plugin class.
  */
-function example_wp_cli() {
-	return Example_WP_CLI_Plugin::get_instance();
+function migrate_woo() {
+	return Migrate_Woo_Plugin::get_instance();
 }
 
 // Kick it off.
-add_action( 'plugins_loaded', array( example_wp_cli(), 'hooks' ) );
+add_action( 'plugins_loaded', array( migrate_woo(), 'hooks' ) );
 
-register_activation_hook( __FILE__, array( 'Example_WP_CLI_Plugin', '_activate' ) );
-register_deactivation_hook( __FILE__, array( 'Example_WP_CLI_Plugin', '_deactivate' ) );
+register_activation_hook( __FILE__, array( 'Migrate_Woo_Plugin', '_activate' ) );
+register_deactivation_hook( __FILE__, array( 'Migrate_Woo_Plugin', '_deactivate' ) );
