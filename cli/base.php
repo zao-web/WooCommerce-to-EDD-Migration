@@ -417,10 +417,14 @@ class Base {
 	 *
 	 * @param  string  $question The confirmation question.
 	 *
-	 * @return mixed             Exits excection if "no" is passed.
+	 * @return mixed             Exits execution if "no" is passed.
 	 */
 	public function confirm( $question ) {
 		return WP_CLI::confirm( $question, $this->assoc_args );
+	}
+
+	public function run( $command ) {
+		return WP_CLI::runcommand( $command, $this->assoc_args );
 	}
 
 	/**
@@ -534,7 +538,7 @@ class Base {
 	 *
 	 * @return Base for chaining.
 	 */
-	protected function disable_emails() {
+	public function disable_emails() {
 		add_filter( 'wp_mail', function( $atts ) {
 			$atts['to'] = '';
 			$atts['subject'] = '';

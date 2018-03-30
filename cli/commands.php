@@ -129,6 +129,15 @@ class Commands {
 		$cli->success_message( 'EDD Tags migrated ..' );
 	}
 
+	/**
+	 * Step Two: Migrate Products
+	 *
+	 * @todo Use filterable meta map to avoid lots of duplication
+	 * @todo Update APIs used to migrate, avoid deprecation notices
+	 *
+	 * @param  [type] $cli [description]
+	 * @return [type]      [description]
+	 */
 	public function migrate_products( $cli ) {
 		$wc_product_cpt  = 'product';
 		$edd_product_cpt = 'download';
@@ -386,88 +395,81 @@ class Commands {
 
 					// Prepare aray entry for downloaded file
 					$edd_dl_files[] = array(
-						//			'attachment_id' => $attach_id,
 						'attachment_id' => '',
-						//		    'name' => basename( $attachment[ 'file' ] ),
 						'name' => $wc_file['name'],
 						'file' => $wc_file[ 'file' ],
 					);
 				}
 
 				// Store downloadable files into meta table
-				if( !empty( $edd_dl_files ) ) {
+				if ( ! empty( $edd_dl_files ) ) {
 					update_post_meta( $edd_product_id, $edd_dl_files_slug, $edd_dl_files );
-					$temp_log_str = "\nWC Downloadable Files migrated ...\n";
-					$log_str .= $temp_log_str;
-					echo $temp_log_str;
+					$cli->success_message( "WC Downloadable Files migrated ..." );
 				}
 
 				// Download Limit
 				// Take old value from WC meta and save it into EDD meta.
 				$edd_dl_limit_slug = '_edd_download_limit';
-				$wc_dl_limit_slug = '_download_limit';
+				$wc_dl_limit_slug  = '_download_limit';
+
 				update_post_meta( $edd_product_id, $edd_dl_limit_slug, get_post_meta( $p->ID, $wc_dl_limit_slug, true ) );
-				$temp_log_str = "\nWC Download Limit : " . get_post_meta( $p->ID, $wc_dl_limit_slug, true ) . " migrated ...\n";
-				$log_str .= $temp_log_str;
-				echo $temp_log_str;
+
+				$cli->success_message( "WC Download Limit : " . get_post_meta( $p->ID, $wc_dl_limit_slug, true ) . " migrated ..." );
 
 				// Price
 				// Take old value from WC meta and save it into EDD meta.
 				$edd_product_price_slug = 'edd_price';
-				$wc_product_price_slug = '_regular_price';
+				$wc_product_price_slug  = '_regular_price';
+
 				update_post_meta( $edd_product_id, $edd_product_price_slug, get_post_meta( $p->ID, $wc_product_price_slug, true ) );
-				$temp_log_str = "\nWC Product Price : " . get_post_meta( $p->ID, $wc_product_price_slug, true ) . " migrated ...\n";
-				$log_str .= $temp_log_str;
-				echo $temp_log_str;
+
+				$cli->success_message( "WC Product Price : " . get_post_meta( $p->ID, $wc_product_price_slug, true ) . " migrated ..." );
 
 				// Activation Limit
-				$wc_activation_limit_slug = '_api_activations_parent';
+				$wc_activation_limit_slug  = '_api_activations_parent';
 				$edd_activation_limit_slug = '_edd_sl_limit';
+
 				update_post_meta( $edd_product_id, $edd_activation_limit_slug, get_post_meta( $p->ID, $wc_activation_limit_slug, true ) );
-				$temp_log_str = "\nWC Activation Limit : " . get_post_meta( $p->ID, $wc_activation_limit_slug, true ) . " migrated ...\n";
-				$log_str .= $temp_log_str;
-				echo $temp_log_str;
+				$cli->success_message( "WC Activation Limit : " . get_post_meta( $p->ID, $wc_activation_limit_slug, true ) . " migrated ..." );
 
 				// Download Expiry
-				$wc_dl_expiry_slug = "_download_expiry";
-				$edd_dl_expiry_unit_slug = "_edd_sl_exp_unit";
+				$wc_dl_expiry_slug         = "_download_expiry";
+				$edd_dl_expiry_unit_slug   = "_edd_sl_exp_unit";
 				$edd_dl_expiry_length_slug = "_edd_sl_exp_length";
+
 				update_post_meta( $edd_product_id, $edd_dl_expiry_length_slug, get_post_meta( $p->ID, $wc_dl_expiry_slug, true ) );
 				update_post_meta( $edd_product_id, $edd_dl_expiry_unit_slug, 'days' );
-				$temp_log_str = "\nWC Download Expiry : " . get_post_meta( $p->ID, $wc_dl_expiry_slug, true ) . " migrated ...\n";
-				$log_str .= $temp_log_str;
-				echo $temp_log_str;
+
+				$cli->success_message( "WC Download Expiry : " . get_post_meta( $p->ID, $wc_dl_expiry_slug, true ) . " migrated ..." );
 			}
 
 			// Sales
 			// Take old value from WC meta and save it into EDD meta.
 			$edd_product_sales_slug = '_edd_download_sales';
-			$wc_product_sales_slug = 'total_sales';
+			$wc_product_sales_slug  = 'total_sales';
+
 			update_post_meta( $edd_product_id, $edd_product_sales_slug, get_post_meta( $p->ID, $wc_product_sales_slug, true ) );
-			$temp_log_str = "\nWC Product Total Sales : " . get_post_meta( $p->ID, $wc_product_sales_slug, true ) . " migrated ...\n";
-			$log_str .= $temp_log_str;
-			echo $temp_log_str;
+			$cli->success_message( "WC Product Total Sales : " . get_post_meta( $p->ID, $wc_product_sales_slug, true ) . " migrated ..." );
 
 			// API Enabled - Licensing Enabled
 			$wc_api_slug = '_is_api';
 			$edd_sl_slug = '_edd_sl_enabled';
+
 			update_post_meta( $edd_product_id, $edd_sl_slug, get_post_meta( $p->ID, $wc_api_slug, true ) );
-			$temp_log_str = "\nWC Product API Enabled : " . get_post_meta( $p->ID, $wc_api_slug, true ) . " migrated ...\n";
-			$log_str .= $temp_log_str;
-			echo $temp_log_str;
+
+			$cli->success_message( "WC Product API Enabled : " . get_post_meta( $p->ID, $wc_api_slug, true ) . " migrated ..." );
 
 			// Software Version
 			$wc_api_version_slug = '_api_new_version';
 			$edd_sl_version_slug = '_edd_sl_version';
+
 			update_post_meta( $edd_product_id, $edd_sl_version_slug, get_post_meta( $p->ID, $wc_api_version_slug, true ) );
-			$temp_log_str = "\nWC Product Version : " . get_post_meta( $p->ID, $wc_api_version_slug, true ) . " migrated ...\n";
-			$log_str .= $temp_log_str;
-			echo $temp_log_str;
+
+			$cli->success_message( "WC Product Version : " . get_post_meta( $p->ID, $wc_api_version_slug, true ) . " migrated ..." );
 
 			// Old Plugin Update Info
 			update_post_meta( $edd_product_id, '_product_update_slug', get_post_meta( $p->ID, '_product_update_slug', true ) );
 			update_post_meta( $edd_product_id, '_product_update_version', get_post_meta( $p->ID, '_product_update_version', true ) );
-
 
 			// Product Demo URL
 			update_post_meta( $edd_product_id, '_product_live_demo_url', get_post_meta( $p->ID, '_product_live_demo_url', true ) );
@@ -477,47 +479,140 @@ class Commands {
 				'post_id' => $product->id,
 				'approve' => 'approve',
 			);
+
 			$wc_reviews = get_comments( $args );
-			$temp_log_str = "\nProduct Reviews fetched ...\n";
-			$log_str .= $temp_log_str;
-			echo $temp_log_str;
+			$cli->success_message( "Product Reviews fetched ..." );
 
 			foreach ( $wc_reviews as $comment ) {
 
-				$temp_log_str = "\nWC Review - $comment->comment_ID\n";
-				$log_str .= $temp_log_str;
-				echo $temp_log_str;
+				$cli->success_message( "WC Review - $comment->comment_ID" );
 
 				$comment_data = array(
-					'comment_post_ID' => $wc_edd_product_map[ $product->id ],
-					'comment_author' => $comment->comment_author,
+					'comment_post_ID'      => $wc_edd_product_map[ $product->id ],
+					'comment_author'       => $comment->comment_author,
 					'comment_author_email' => $comment->comment_author_email,
-					'comment_content' => $comment->comment_content,
-					'comment_approved' => 1,
+					'comment_content'      => $comment->comment_content,
+					'comment_approved'     => 1,
 				);
 
 				$edd_review_id = wp_insert_comment( $comment_data );
 
 				// Update relevant data from old comment
 				wp_update_comment( array(
-					'comment_ID' => $edd_review_id,
-					'comment_date' => $comment->comment_date,
+					'comment_ID'       => $edd_review_id,
+					'comment_date'     => $comment->comment_date,
 					'comment_date_gmt' => $comment->comment_date_gmt,
 				) );
+
 				update_comment_meta( $edd_review_id, '_wc_review_id', $comment->comment_ID );
 
 				// Migrate Rating
 				update_comment_meta( $edd_review_id, '_wc_rating', get_comment_meta( $comment->comment_ID, 'rating', true ) );
 
-				$temp_log_str = "\nWC Review migrated ...\n";
-				$log_str .= $temp_log_str;
-				echo $temp_log_str;
+				$cli->success_message( "WC Review migrated ..." );
 			}
 
 			// Earnings
 			// TODO - Do it when migrating orders i.e. Payment History
+			$progress( 'tick' );
+
 		}
+
+		$progress( 'finish' );
 	}
+
+	public function migrate_coupons( $cli ) {
+		$wc_coupon_cpt  = 'shop_coupon';
+		$edd_coupon_cpt = 'edd_discount';
+
+		// Fetch WC Coupons
+		$args = array(
+			'post_type'      => $wc_coupon_cpt,
+			'posts_per_page' => -1,
+			'post_status'    => 'any',
+		);
+
+		$wc_coupon_list = get_posts( $args );
+
+		$cli->success_message( "WC Coupons fetched ..." );
+		$progress = $cli->progress_bar( count( $wc_coupon_list ) );
+
+		$wc_edd_coupon_map = array();
+
+		foreach( $wc_coupon_list as $c ) {
+
+			// WC Coupon Object
+			$code   = $c->post_title;
+			$status = ( $c->post_status == 'publish' ) ? 'active' : 'inactive';
+			$coupon = new WC_Coupon( $code );
+
+			$cli->success_message( "Coupon - $c->ID" );
+
+			$data = array(
+				'post_content' => $c->post_content,
+				'post_title'   => $c->post_title,
+				'post_status'  => $status,
+				'post_type'    => $edd_coupon_cpt,
+				'post_author'  => $c->post_author,
+				'post_parent'  => $c->post_parent,
+				'post_excerpt' => $c->post_excerpt,
+				'post_date'    => $c->post_date,
+				'post_date_gmt' => $c->post_date_gmt,
+				'comment_status' => $c->comment_status,
+			);
+
+			$edd_coupon_id = wp_insert_post( $data );
+
+			// Adjust according to EDD Format
+			$expiry_date = get_post_meta( $c->ID, 'expiry_date', true );
+			$expiry_date = new DateTime( $expiry_date );
+
+			$expiry_date->add( new DateInterval( 'PT23H59M59S' ) );
+
+			$discount_type = get_post_meta( $c->ID, 'discount_type', true );
+
+			$data = array(
+				// TODO - Update uses when migrating Orders
+				// 'uses' => {number},
+				'name'   => $c->post_excerpt,
+				'status' => $status,
+				'code'   => $code,
+				'max'    => get_post_meta( $c->ID, 'usage_limit', true ),
+				'amount' => get_post_meta( $c->ID, 'coupon_amount', true ),
+				'expiration' => $expiry_date->format('m/d/Y H:i:s'),
+				'type' => ( strstr( $discount_type, 'percent' ) == false ) ? 'flat' : 'percent',
+				'min_price' => get_post_meta( $c->ID, 'minimum_amount', true ),
+				'products' => array_map( 'intval', explode( ',', get_post_meta( $c->ID, 'product_ids', true ) ) ),
+				'product_condition' => 'any',
+				'excluded-products' => array_map( 'intval', explode( ',', get_post_meta( $c->ID, 'exclude_product_ids', true ) ) ),
+				'not_global' => true,
+				'use_once'  => false,
+			);
+
+			edd_store_discount( $data, $edd_coupon_id );
+
+			$wc_edd_coupon_map[ $c->ID ] = $edd_coupon_id;
+			$cli->success_message( "WC Coupon migrated ..." );
+
+			update_post_meta( $edd_coupon_id, '_wc_coupon_id', $c->ID );
+			$progress( 'tick' );
+		}
+
+		$progress( 'finish' );
+	}
+
+	public function migrate_orders( $cli ) {
+
+	}
+
+	public function maybe_migrate_subscriptions( $cli ) {
+
+	}
+
+	public function maybe_migrate_stripe_subscriptions( $cli ) {
+
+	}
+
 	public function migrate( $args, $assoc_args ) {
 		$cli = new Actions( $args, $assoc_args, self::$log_dir );
 		$cli->disable_emails();
@@ -532,7 +627,7 @@ class Commands {
 		 * Step 1
 		 * Category & Tag Migrate
 		 */
-		$this->migrate_taxonomies( $cli );
+		 $this->migrate_taxonomies( $cli );
 
 		/**
 		 * Step 2
@@ -540,88 +635,30 @@ class Commands {
 		 */
 		 $this->migrate_products( $cli );
 
-
 		/**
 		 * Step 3
 		 * Coupons Migrate
 		 */
-		$wc_coupon_cpt = 'shop_coupon';
-		$edd_coupon_cpt = 'edd_discount';
-
-		// Fetch WC Coupons
-		$args = array(
-			'post_type' => $wc_coupon_cpt,
-			'posts_per_page' => -1,
-			'post_status' => 'any',
-		);
-		$wc_coupon_list = get_posts( $args );
-		$temp_log_str = "\nWC Coupons fetched ...\n";
-		$log_str .= $temp_log_str;
-		echo $temp_log_str;
-
-		$wc_edd_coupon_map = array();
-
-		foreach( $wc_coupon_list as $c ) {
-
-			// WC Coupon Object
-			$code = $c->post_title;
-			$status = ( $c->post_status == 'publish' ) ? 'active' : 'inactive';
-			$coupon = new WC_Coupon( $code );
-			$temp_log_str = "\nCoupon - $c->ID\n";
-			$log_str .= $temp_log_str;
-			echo $temp_log_str;
-
-			$data = array(
-				'post_content' => $c->post_content,
-				'post_title' => $c->post_title,
-				'post_status' => $status,
-				'post_type' => $edd_coupon_cpt,
-				'post_author' => $c->post_author,
-				'post_parent' => $c->post_parent,
-				'post_excerpt' => $c->post_excerpt,
-				'post_date' => $c->post_date,
-				'post_date_gmt' => $c->post_date_gmt,
-				'comment_status' => $c->comment_status,
-			);
-			$edd_coupon_id = wp_insert_post( $data );
-
-			// Adjust according to EDD Format
-			$expiry_date = get_post_meta( $c->ID, 'expiry_date', true );
-			$expiry_date = new DateTime( $expiry_date );
-			$expiry_date->add( new DateInterval( 'PT23H59M59S' ) );
-			$discount_type = get_post_meta( $c->ID, 'discount_type', true );
-			$data = array(
-				'name' => $c->post_excerpt,
-				'status' => $status,
-				'code' => $code,
-				// TODO - Update uses when migrating Orders
-				// 'uses' => {number},
-				'max' => get_post_meta( $c->ID, 'usage_limit', true ),
-				'amount' => get_post_meta( $c->ID, 'coupon_amount', true ),
-				'expiration' => $expiry_date->format('m/d/Y H:i:s'),
-			    'type' => ( strstr( $discount_type, 'percent' ) == FALSE ) ? 'flat' : 'percent',
-			    'min_price' => get_post_meta( $c->ID, 'minimum_amount', true ),
-			    'products' => array_map( 'intval', explode( ',', get_post_meta( $c->ID, 'product_ids', true ) ) ),
-			    'product_condition' => 'any',
-			    'excluded-products' => array_map( 'intval', explode( ',', get_post_meta( $c->ID, 'exclude_product_ids', true ) ) ),
-			    'not_global' => true,
-			    'use_once' => false,
-			);
-			edd_store_discount( $data, $edd_coupon_id );
-
-			$wc_edd_coupon_map[ $c->ID ] = $edd_coupon_id;
-			$temp_log_str = "\nWC Coupon migrated ...\n";
-			$log_str .= $temp_log_str;
-			echo $temp_log_str;
-
-			update_post_meta( $edd_coupon_id, '_wc_coupon_id', $c->ID );
-
-		}
+		$this->migrate_coupons( $cli );
 
 		/**
 		 * Step 4
 		 * Orders Migrate
 		 */
+		$this->migrate_orders( $cli );
+
+		/**
+		 * Step 4
+		 * Orders Migrate
+		 */
+		$this->migrate_orders( $cli );
+		
+		/**
+		 * Step 4
+		 * Orders Migrate
+		 */
+		$this->migrate_orders( $cli );
+
 		$wc_order_cpt = 'shop_order';
 		$edd_order_cpt = 'edd_payment';
 
