@@ -73,71 +73,70 @@ class Commands {
 	 * @todo Account for all registered taxonomies, not just category/tags - DRY
 	 * @return [type] [description]
 	 */
-	public function migrate_taxonomies( $cli ) {
-		$edd_cat_slug = 'download_category';
-		$wc_cat_slug  = 'product_cat';
-
-		$wc_edd_cat_map = array();
+	public function migrate_taxonomies() {
 
 		// Fetch Category from WC
-		$wc_cat_terms = get_terms( $wc_cat_slug, array( 'hide_empty' => false ) );
+		$wc_cat_terms = get_terms( $this->wc_cat_slug, array( 'hide_empty' => false ) );
 
-		$cli->success_message( "WC Cat fetched ..." );
+		$this->cli->success_message( "WC Cat fetched ..." );
 
-		$progress = $cli->progress_bar( count( $wc_cat_terms ) );
+		$progress = $this->cli->progress_bar( count( $wc_cat_terms ) );
 
 		foreach ( $wc_cat_terms as $t ) {
 			$args = array();
 
 			// Check for Parent Term; if any
-			if ( ! empty( $t->parent ) && isset( $wc_edd_cat_map[ $t->parent ] ) ) {
-				$args['parent'] = $wc_edd_cat_map[ $t->parent ];
+			if ( ! empty( $t->parent ) && isset( $this->wc_edd_cat_map[ $t->parent ] ) ) {
+				$args['parent'] = $this->wc_edd_cat_map[ $t->parent ];
+				$term_exists = term_exists( $this->edd_cat_slug, $t->name, $this->wc_edd_cat_map[ $t->parent ] );
+			} else {
+				$term_exists = term_exists( $this->edd_cat_slug, $t->name );
 			}
 
-			$edd_term = wp_insert_term( $t->name, $edd_cat_slug, $args );
+			if ( ! $term_exists ) {
+				$edd_term = wp_insert_term( $t->name, $this->edd_cat_slug, $args );
+			}
 
 			if ( ! is_wp_error( $edd_term ) ) {
 				// maintain array of category mapping
-				$wc_edd_cat_map[ $t->term_id ] = $edd_term['term_id'];
+				$this->wc_edd_cat_map[ $t->term_id ] = $edd_term['term_id'];
 			} else {
-				$cli->warning_message( "$t->name -- Category not migrated because : ", $edd_term );
+				$this->cli->warning_message( "$t->name -- Category not migrated because : ", $edd_term );
 			}
 
-			$progress( 'tick' );
+			$progress->tick();
 		}
 
-		$progress( 'finish' );
+		$progress->finish();
 
 		unset( $progress );
 
-		$cli->success_message( 'EDD Categories migrated ..' );
+		$this->cli->success_message( 'EDD Categories migrated ..' );
 
-		$edd_tag_slug   = 'download_tag';
-		$wc_tag_slug    = 'product_tag';
-		$wc_edd_tag_map = array();
+		$this->wc_edd_tag_map = array();
 
 		// Fetch Tag from WC
-		$wc_tag_terms = get_terms( $wc_tag_slug, array( 'hide_empty' => false ) );
-		$cli->success_message( "WC Tag fetched ..." );
+		$wc_tag_terms = get_terms( $this->wc_tag_slug, array( 'hide_empty' => false ) );
+		$this->cli->success_message( "WC Tag fetched ..." );
 
-		$progress = $cli->progress_bar( count( $wc_tag_terms ) );
+		$progress = $this->cli->progress_bar( count( $wc_tag_terms ) );
 
 		foreach ( $wc_tag_terms as $t ) {
-			$edd_term = wp_insert_term( $t->name, $edd_tag_slug );
+			$edd_term = wp_insert_term( $t->name, $this->edd_tag_slug );
 
 			if ( ! is_wp_error( $edd_term ) ) {
 				// maintain array of tag mapping
-				$wc_edd_tag_map[ $t->term_id ] = $edd_term[ 'term_id' ];
+				$this->wc_edd_tag_map[ $t->term_id ] = $edd_term[ 'term_id' ];
 			} else {
-				$cli->warning_message( "$t->name -- Tag not migrated because : ", $edd_term );
+				$this->cli->warning_message( "$t->name -- Tag not migrated because : ", $edd_term );
 			}
 		}
 
-		$progress( 'finish' );
+		$progress->finish();
 
 		unset( $progress );
 
-		$cli->success_message( 'EDD Tags migrated ..' );
+		$this->cli->success_message( 'EDD Tags migrated ..' );
 	}
 
 	/**
