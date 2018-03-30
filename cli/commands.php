@@ -379,12 +379,24 @@ class Commands {
 							$this->cli->success_message( "Variation Price : ".get_post_meta( $variation->ID, '_regular_price', true ) . " ..." );
 							$this->cli->success_message( "Variation Activation : ".get_post_meta( $variation->ID, '_api_activations', true )." ..." );
 
-							$edd_variations[] = array(
+							$variations = array(
 								'index' => $index++,
 							    'name' => $variation_selected_value,
 							    'amount' => get_post_meta( $variation->ID, '_regular_price', true ),
 							    'license_limit' => get_post_meta( $variation->ID, '_api_activations', true ),
 							);
+
+							if ( 'variable-subscription' === $type ) {
+								$variations['recurring']      = 'yes';
+								$variations['trial-quantity'] = get_post_meta( $variation->ID, '_subscription_trial_length', true );
+								$variations['trial-unit']     = get_post_meta( $variation->ID, '_subscription_trial_period', true );
+								$variations['period']         = get_post_meta( $variation->ID, '_subscription_period', true );
+								$variations['times']          = get_post_meta( $variation->ID, '_subscription_period_interval', true );
+								$variations['signup_fee']     = get_post_meta( $variation->ID, '_subscription_sign_up_fee', true );
+								$variations['amount']         = get_post_meta( $variation->ID, '_subscription_price', true );
+							}
+
+							$edd_variations[] = $variations;
 						}
 					}
 				}
