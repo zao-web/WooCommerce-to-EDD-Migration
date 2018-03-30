@@ -730,7 +730,7 @@ class Commands {
 
 				if ( is_wp_error( $user ) ) {
 					$this->cli->confirm( "Error inserting user : " . $user->get_error_message() . ' Continue?' );
-					continue;
+					$user_id  =$user->get_error_message();
 				}
 			} else {
 				$user_id = $user->ID;
