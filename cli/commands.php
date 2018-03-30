@@ -145,10 +145,13 @@ class Commands {
 	 * @todo Use filterable meta map to avoid lots of duplication
 	 * @todo Update APIs used to migrate, avoid deprecation notices
 	 *
-	 * @param  [type] $cli [description]
+	 * @param  [type] $this->cli [description]
 	 * @return [type]      [description]
 	 */
-	public function migrate_products( $cli ) {
+	public function migrate_products() {
+
+		$this->cli->confirm( 'Do you want to migrate WooCommerce products to EDD products?' );
+
 		$wc_product_cpt  = 'product';
 		$edd_product_cpt = 'download';
 
@@ -161,43 +164,44 @@ class Commands {
 
 		$wc_product_list = get_posts( $args );
 
-		$cli->success_message( "WC Products fetched ..." );
+		$this->cli->success_message( "WC Products fetched ..." );
 
-		$progress = $cli->progress_bar( count( $wc_product_list ) );
+		$progress = $this->cli->progress_bar( count( $wc_product_list ) );
 
 		$wc_edd_product_map = array();
 
 		foreach( $wc_product_list as $p ) {
 
 			// WC Product Object
-			$product = wc_get_product( $p );
+			$product    = wc_get_product( $p->ID );
+			$product_id = $product->get_id();
 
-			$cli->success_message( "Product - $p->ID" );
+			$this->cli->success_message( "Product - $product_id" );
 
 			// Fetch WC Categories
-			$wc_cat_terms = wp_get_post_terms( $p->ID, $wc_cat_slug );
+			$wc_cat_terms = wp_get_post_terms( $product_id, $this->wc_cat_slug );
 
-			$cli->success_message( "WC Product Category fetched ..." );
+			$this->cli->success_message( "WC Product Category fetched ..." );
 
 			$edd_cat_terms = array();
 
 			if ( ! is_wp_error( $wc_cat_terms ) ) {
 				foreach ( $wc_cat_terms as $t ) {
-					if ( isset( $wc_edd_cat_map[ $t->term_id ] ) ) {
-						$edd_cat_terms[] = intval( $wc_edd_cat_map[ $t->term_id ] );
+					if ( isset( $this->wc_edd_cat_map[ $t->term_id ] ) ) {
+						$edd_cat_terms[] = intval( $this->wc_edd_cat_map[ $t->term_id ] );
 					}
 				}
 			}
 
 			// Fetch WC Tags
-			$wc_tag_terms = wp_get_object_terms( $p->ID, $wc_tag_slug );
-			$cli->success_message( "WC Product Tag fetched ..." );
+			$wc_tag_terms = wp_get_object_terms( $product_id, $this->wc_tag_slug );
+			$this->cli->success_message( "WC Product Tag fetched ..." );
 
 			$edd_tag_terms = array();
 			if ( ! $wc_tag_terms instanceof WP_Error ) {
 				foreach ( $wc_tag_terms as $t ) {
-					if ( isset( $wc_edd_tag_map[ $t->term_id ] ) ) {
-						$edd_tag_terms[] = intval( $wc_edd_tag_map[ $t->term_id ] );
+					if ( isset( $this->wc_edd_tag_map[ $t->term_id ] ) ) {
+						$edd_tag_terms[] = intval( $this->wc_edd_tag_map[ $t->term_id ] );
 					}
 				}
 			}
@@ -218,41 +222,41 @@ class Commands {
 			$edd_product_id = wp_insert_post( $data );
 
 			if ( empty( $edd_product_id ) || is_wp_error( $edd_product_id ) ) {
-				$cli->warning_message( "Product Not Migrated : ", $p );
-				$progress( 'tick' );
+				$this->cli->warning_message( "Product Not Migrated : ", $p );
+				$progress->tick();
 				continue;
 			}
 
-			$wc_edd_product_map[ $p->ID ] = $edd_product_id;
+			$wc_edd_product_map[ $product_id ] = $edd_product_id;
 
-			$cli->success_message( "WC Product migrated..." );
-			$progress( 'tick' );
-			update_post_meta( $edd_product_id, '_wc_product_id', $p->ID );
+			$this->cli->success_message( "WC Product migrated..." );
+			$progress->tick();
+			update_post_meta( $edd_product_id, '_wc_product_id', $product_id );
 
 			// Assign Category
-			$terms = wp_set_object_terms( $edd_product_id, $edd_cat_terms, $edd_cat_slug );
+			$terms = wp_set_object_terms( $edd_product_id, $edd_cat_terms, $this->edd_cat_slug );
 
 			if ( is_wp_error( $terms ) ) {
-				$cli->warning_message( "Product Categories Failed to Assign : ", $terms );
-				$progress( 'tick' );
+				$this->cli->warning_message( "Product Categories Failed to Assign : ", $terms );
+				$progress->tick();
 				continue;
 			}
 
-			$cli->success_message( "WC Category migrated..." );
+			$this->cli->success_message( "WC Category migrated..." );
 
 			// Assign Tag
-			$terms = wp_set_object_terms( $edd_product_id, $edd_tag_terms, $edd_tag_slug );
+			$terms = wp_set_object_terms( $edd_product_id, $edd_tag_terms, $this->edd_tag_slug );
 
 			if ( is_wp_error( $terms ) ) {
-				$cli->warning_message( "Product Tags Failed to Assign : ", $terms );
-				$progress( 'tick' );
+				$this->cli->warning_message( "Product Tags Failed to Assign : ", $terms );
+				$progress->tick();
 				continue;
 			}
 
-			$cli->success_message( "WC Tag migrated..." );
+			$this->cli->success_message( "WC Tag migrated..." );
 
 			// Featured Image
-			$wc_product_featured_image = get_post_thumbnail_id( $p->ID );
+			$wc_product_featured_image = get_post_thumbnail_id( $product_id );
 
 			if ( ! empty( $wc_product_featured_image ) ) {
 
@@ -260,13 +264,13 @@ class Commands {
 				$edd_product_fi_meta_id = set_post_thumbnail( $edd_product_id, $wc_product_featured_image );
 
 				if ( empty( $edd_product_fi_meta_id ) ) {
-					$cli->warning_message( "Feature Image could not be set for Product ... : ", $p );
-					$progress( 'tick' );
+					$this->cli->warning_message( "Feature Image could not be set for Product ... : ", $p );
+					$progress->tick();
 					continue;
 				}
 			}
 
-			$cli->success_message( "WC Featured Image migrated..." );
+			$this->cli->success_message( "WC Featured Image migrated..." );
 
 			// Product Gallery
 			$attachment_ids = $product->get_gallery_attachment_ids();
@@ -279,26 +283,32 @@ class Commands {
 					$attach_id = $this->wc_edd_insert_attachment( $attachment_id, $edd_product_id );
 
 					if ( empty( $attach_id ) ) {
-						$cli->warning_message( "Gallery Image ID $attachment_id could not be set for Product ... : ", $p );
-						$progress( 'tick' );
+						$this->cli->warning_message( "Gallery Image ID $attachment_id could not be set for Product ... : ", $p );
+						$progress->tick();
 						continue;
 					}
 				}
 
-				$cli->success_message( "WC Gallery migrated..." );
+				$this->cli->success_message( "WC Gallery migrated..." );
 			}
 
-			if ( 'variable' === $product->product_type ) {
+			$type = $product->get_type();
+
+			if ( 'variable' === $type || 'variable-subscription' === $type ) {
+
+				$this->cli->success_message( "Migrating a variable product..." );
+
 				$args = array(
 					'post_type'		=> 'product_variation',
 					'post_status' 	=> array( 'private', 'publish' ),
 					'numberposts' 	=> -1,
 					'orderby' 		=> 'menu_order',
 					'order' 		=> 'asc',
-					'post_parent' 	=> $product->id,
+					'post_parent' 	=> $product_id,
 				);
 
 				$wc_variations = get_posts( $args );
+
 				update_post_meta( $edd_product_id, '_variable_pricing', 1 );
 
 				$edd_variations = array();
@@ -306,7 +316,7 @@ class Commands {
 				if ( $wc_variations ) {
 
 					foreach ( $wc_variations as $variation ) {
-						$cli->success_message( "Variation - $variation->ID..." );
+						$this->cli->success_message( "Variation - $variation->ID..." );
 
 						// Downloadable Files
 						$wc_dl_files       = maybe_unserialize( get_post_meta( $variation->ID, '_downloadable_files', true ) );
@@ -315,7 +325,7 @@ class Commands {
 
 						foreach ( $wc_dl_files as $wc_file ) {
 
-							$cli->success_message( "Old File : ".$wc_file[ 'file' ] );
+							$this->cli->success_message( "Old File : ".$wc_file[ 'file' ] );
 
 							// Prepare array entry for downloaded file
 							$edd_dl_files[] = array(
@@ -328,7 +338,7 @@ class Commands {
 						// Store downloadable files into meta table
 						if ( ! empty( $edd_dl_files ) ) {
 							update_post_meta( $edd_product_id, $edd_dl_files_slug, $edd_dl_files );
-							$cli->success_message( "WC Downloadable Files migrated" );
+							$this->cli->success_message( "WC Downloadable Files migrated" );
 						}
 
 						// Download Limit
@@ -338,7 +348,7 @@ class Commands {
 
 						update_post_meta( $edd_product_id, $edd_dl_limit_slug, get_post_meta( $variation->ID, $wc_dl_limit_slug, true ) );
 
-						$cli->success_message( "WC Download Limit : " . get_post_meta( $variation->ID, $wc_dl_limit_slug, true ) . " migrated ..." );
+						$this->cli->success_message( "WC Download Limit : " . get_post_meta( $variation->ID, $wc_dl_limit_slug, true ) . " migrated ..." );
 
 						// Download Expiry
 						$wc_dl_expiry_slug         = "_download_expiry";
@@ -348,9 +358,9 @@ class Commands {
 						update_post_meta( $edd_product_id, $edd_dl_expiry_length_slug, get_post_meta( $variation->ID, $wc_dl_expiry_slug, true ) );
 						update_post_meta( $edd_product_id, $edd_dl_expiry_unit_slug, 'days' );
 
-						$cli->success_message( "WC Download Expiry : " . get_post_meta( $variation->ID, $wc_dl_expiry_slug, true ) . " migrated ..." );
+						$this->cli->success_message( "WC Download Expiry : " . get_post_meta( $variation->ID, $wc_dl_expiry_slug, true ) . " migrated ..." );
 
-						$attributes     = maybe_unserialize( get_post_meta( $product->id, '_product_attributes', true ) );
+						$attributes     = maybe_unserialize( get_post_meta( $product_id, '_product_attributes', true ) );
 						$variation_data = get_post_meta( $variation->ID );
 						$index          = 1;
 
@@ -363,9 +373,9 @@ class Commands {
 
 							$variation_selected_value = isset( $variation_data[ 'attribute_' . sanitize_title( $attr['name'] ) ][0] ) ? $variation_data[ 'attribute_' . sanitize_title( $attr['name'] ) ][0] : '';
 
-							$cli->success_message( "Variation Value : $variation_selected_value ..." );
-							$cli->success_message( "Variation Price : ".get_post_meta( $variation->ID, '_regular_price', true ) . " ..." );
-							$cli->success_message( "Variation Activation : ".get_post_meta( $variation->ID, '_api_activations', true )." ..." );
+							$this->cli->success_message( "Variation Value : $variation_selected_value ..." );
+							$this->cli->success_message( "Variation Price : ".get_post_meta( $variation->ID, '_regular_price', true ) . " ..." );
+							$this->cli->success_message( "Variation Activation : ".get_post_meta( $variation->ID, '_api_activations', true )." ..." );
 
 							$edd_variations[] = array(
 								'index' => $index++,
@@ -383,13 +393,13 @@ class Commands {
 
 				update_post_meta( $edd_product_id, $edd_sl_version_slug, get_post_meta( $variation->ID, $wc_api_version_slug, true ) );
 
-				$cli->success_message( "WC Product Version : " . get_post_meta( $variation->ID, $wc_api_version_slug, true ) . " migrated ..." );
+				$this->cli->success_message( "WC Product Version : " . get_post_meta( $variation->ID, $wc_api_version_slug, true ) . " migrated ..." );
 
 				// Store Variations in EDD
 				$edd_variations_slug = 'edd_variable_prices';
 				if ( ! empty( $edd_variations ) ) {
 					update_post_meta( $edd_product_id, $edd_variations_slug, $edd_variations );
-					$cli->success_message( "WC Variations migrated ..." );
+					$this->cli->success_message( "WC Variations migrated ..." );
 
 				}
 			} else {
@@ -401,7 +411,7 @@ class Commands {
 
 				foreach( $wc_dl_files as $wc_file ) {
 
-					$cli->success_message( "Old File : " . $wc_file[ 'file' ] );
+					$this->cli->success_message( "Old File : " . $wc_file[ 'file' ] );
 
 					// Prepare aray entry for downloaded file
 					$edd_dl_files[] = array(
@@ -414,7 +424,7 @@ class Commands {
 				// Store downloadable files into meta table
 				if ( ! empty( $edd_dl_files ) ) {
 					update_post_meta( $edd_product_id, $edd_dl_files_slug, $edd_dl_files );
-					$cli->success_message( "WC Downloadable Files migrated ..." );
+					$this->cli->success_message( "WC Downloadable Files migrated ..." );
 				}
 
 				// Download Limit
@@ -422,35 +432,35 @@ class Commands {
 				$edd_dl_limit_slug = '_edd_download_limit';
 				$wc_dl_limit_slug  = '_download_limit';
 
-				update_post_meta( $edd_product_id, $edd_dl_limit_slug, get_post_meta( $p->ID, $wc_dl_limit_slug, true ) );
+				update_post_meta( $edd_product_id, $edd_dl_limit_slug, get_post_meta( $product_id, $wc_dl_limit_slug, true ) );
 
-				$cli->success_message( "WC Download Limit : " . get_post_meta( $p->ID, $wc_dl_limit_slug, true ) . " migrated ..." );
+				$this->cli->success_message( "WC Download Limit : " . get_post_meta( $product_id, $wc_dl_limit_slug, true ) . " migrated ..." );
 
 				// Price
 				// Take old value from WC meta and save it into EDD meta.
 				$edd_product_price_slug = 'edd_price';
 				$wc_product_price_slug  = '_regular_price';
 
-				update_post_meta( $edd_product_id, $edd_product_price_slug, get_post_meta( $p->ID, $wc_product_price_slug, true ) );
+				update_post_meta( $edd_product_id, $edd_product_price_slug, get_post_meta( $product_id, $wc_product_price_slug, true ) );
 
-				$cli->success_message( "WC Product Price : " . get_post_meta( $p->ID, $wc_product_price_slug, true ) . " migrated ..." );
+				$this->cli->success_message( "WC Product Price : " . get_post_meta( $product_id, $wc_product_price_slug, true ) . " migrated ..." );
 
 				// Activation Limit
 				$wc_activation_limit_slug  = '_api_activations_parent';
 				$edd_activation_limit_slug = '_edd_sl_limit';
 
-				update_post_meta( $edd_product_id, $edd_activation_limit_slug, get_post_meta( $p->ID, $wc_activation_limit_slug, true ) );
-				$cli->success_message( "WC Activation Limit : " . get_post_meta( $p->ID, $wc_activation_limit_slug, true ) . " migrated ..." );
+				update_post_meta( $edd_product_id, $edd_activation_limit_slug, get_post_meta( $product_id, $wc_activation_limit_slug, true ) );
+				$this->cli->success_message( "WC Activation Limit : " . get_post_meta( $product_id, $wc_activation_limit_slug, true ) . " migrated ..." );
 
 				// Download Expiry
 				$wc_dl_expiry_slug         = "_download_expiry";
 				$edd_dl_expiry_unit_slug   = "_edd_sl_exp_unit";
 				$edd_dl_expiry_length_slug = "_edd_sl_exp_length";
 
-				update_post_meta( $edd_product_id, $edd_dl_expiry_length_slug, get_post_meta( $p->ID, $wc_dl_expiry_slug, true ) );
+				update_post_meta( $edd_product_id, $edd_dl_expiry_length_slug, get_post_meta( $product_id, $wc_dl_expiry_slug, true ) );
 				update_post_meta( $edd_product_id, $edd_dl_expiry_unit_slug, 'days' );
 
-				$cli->success_message( "WC Download Expiry : " . get_post_meta( $p->ID, $wc_dl_expiry_slug, true ) . " migrated ..." );
+				$this->cli->success_message( "WC Download Expiry : " . get_post_meta( $product_id, $wc_dl_expiry_slug, true ) . " migrated ..." );
 			}
 
 			// Sales
@@ -458,47 +468,47 @@ class Commands {
 			$edd_product_sales_slug = '_edd_download_sales';
 			$wc_product_sales_slug  = 'total_sales';
 
-			update_post_meta( $edd_product_id, $edd_product_sales_slug, get_post_meta( $p->ID, $wc_product_sales_slug, true ) );
-			$cli->success_message( "WC Product Total Sales : " . get_post_meta( $p->ID, $wc_product_sales_slug, true ) . " migrated ..." );
+			update_post_meta( $edd_product_id, $edd_product_sales_slug, get_post_meta( $product_id, $wc_product_sales_slug, true ) );
+			$this->cli->success_message( "WC Product Total Sales : " . get_post_meta( $product_id, $wc_product_sales_slug, true ) . " migrated ..." );
 
 			// API Enabled - Licensing Enabled
 			$wc_api_slug = '_is_api';
 			$edd_sl_slug = '_edd_sl_enabled';
 
-			update_post_meta( $edd_product_id, $edd_sl_slug, get_post_meta( $p->ID, $wc_api_slug, true ) );
+			update_post_meta( $edd_product_id, $edd_sl_slug, get_post_meta( $product_id, $wc_api_slug, true ) );
 
-			$cli->success_message( "WC Product API Enabled : " . get_post_meta( $p->ID, $wc_api_slug, true ) . " migrated ..." );
+			$this->cli->success_message( "WC Product API Enabled : " . get_post_meta( $product_id, $wc_api_slug, true ) . " migrated ..." );
 
 			// Software Version
 			$wc_api_version_slug = '_api_new_version';
 			$edd_sl_version_slug = '_edd_sl_version';
 
-			update_post_meta( $edd_product_id, $edd_sl_version_slug, get_post_meta( $p->ID, $wc_api_version_slug, true ) );
+			update_post_meta( $edd_product_id, $edd_sl_version_slug, get_post_meta( $product_id, $wc_api_version_slug, true ) );
 
-			$cli->success_message( "WC Product Version : " . get_post_meta( $p->ID, $wc_api_version_slug, true ) . " migrated ..." );
+			$this->cli->success_message( "WC Product Version : " . get_post_meta( $product_id, $wc_api_version_slug, true ) . " migrated ..." );
 
 			// Old Plugin Update Info
-			update_post_meta( $edd_product_id, '_product_update_slug', get_post_meta( $p->ID, '_product_update_slug', true ) );
-			update_post_meta( $edd_product_id, '_product_update_version', get_post_meta( $p->ID, '_product_update_version', true ) );
+			update_post_meta( $edd_product_id, '_product_update_slug', get_post_meta( $product_id, '_product_update_slug', true ) );
+			update_post_meta( $edd_product_id, '_product_update_version', get_post_meta( $product_id, '_product_update_version', true ) );
 
 			// Product Demo URL
-			update_post_meta( $edd_product_id, '_product_live_demo_url', get_post_meta( $p->ID, '_product_live_demo_url', true ) );
+			update_post_meta( $edd_product_id, '_product_live_demo_url', get_post_meta( $product_id, '_product_live_demo_url', true ) );
 
 			// Reviews
 			$args = array(
-				'post_id' => $product->id,
+				'post_id' => $product_id,
 				'approve' => 'approve',
 			);
 
 			$wc_reviews = get_comments( $args );
-			$cli->success_message( "Product Reviews fetched ..." );
+			$this->cli->success_message( "Product Reviews fetched ..." );
 
 			foreach ( $wc_reviews as $comment ) {
 
-				$cli->success_message( "WC Review - $comment->comment_ID" );
+				$this->cli->success_message( "WC Review - $comment->comment_ID" );
 
 				$comment_data = array(
-					'comment_post_ID'      => $wc_edd_product_map[ $product->id ],
+					'comment_post_ID'      => $wc_edd_product_map[ $product_id ],
 					'comment_author'       => $comment->comment_author,
 					'comment_author_email' => $comment->comment_author_email,
 					'comment_content'      => $comment->comment_content,
