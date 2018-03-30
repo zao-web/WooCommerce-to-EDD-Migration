@@ -262,6 +262,3 @@ function migrate_woo() {
 
 // Kick it off.
 add_action( 'plugins_loaded', array( migrate_woo(), 'hooks' ) );
-
-register_activation_hook( __FILE__, array( 'Migrate_Woo_Plugin', '_activate' ) );
-register_deactivation_hook( __FILE__, array( 'Migrate_Woo_Plugin', '_deactivate' ) );
