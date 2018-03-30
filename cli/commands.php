@@ -6,9 +6,20 @@ namespace Migrate_Woo\CLI;
  *
  * @todo Update for new EDD APIs
  * @todo Update for new WC APIs
+ * @todo Support pagination on API calls for large amounts of data.
+ * @todo Categories and tags not mapping properly
+ * @todo Reviews not mapping
  * @link With thanks to https://github.com/rtCamp/woocommerce-to-easydigitaldownloads
  */
 class Commands {
+
+	protected $cli;
+	protected $edd_cat_slug = 'download_category';
+	protected $wc_cat_slug  = 'product_cat';
+	protected $edd_tag_slug = 'download_tag';
+	protected $wc_tag_slug  = 'product_tag';
+	protected $wc_edd_cat_map = array();
+	protected $wc_edd_tag_map = array();
 
 	/**
 	 * The CLI logs directory.
