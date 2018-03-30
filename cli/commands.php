@@ -851,85 +851,159 @@ class Commands {
 				'post_id' => $order->id,
 				'approve' => 'approve',
 			);
-			$wc_notes = get_comments( $args );
-			$temp_log_str = "\nOrder Notes fetched ...\n";
-			$log_str .= $temp_log_str;
-			echo $temp_log_str;
-			foreach($wc_notes as $note) {
 
-				$temp_log_str = "\nWC Order Note - $note->comment_ID\n";
-				$log_str .= $temp_log_str;
-				echo $temp_log_str;
+			$wc_notes = get_comments( $args );
+
+			$this->cli->success_message( "Order Notes fetched" );
+
+			foreach ( $wc_notes as $note ) {
+
+				$this->cli->success_message( "WC Order Note - $note->comment_ID" );
 
 				$edd_note_id = edd_insert_payment_note( $payment_id, $note->comment_content );
 
 				// Update relevant data from old comment
 				wp_update_comment( array(
-					'comment_ID' => $edd_note_id,
-					'comment_date' => $note->comment_date,
-					'comment_date_gmt' => $note->comment_date_gmt,
-					'comment_author' => $note->comment_author,
+					'comment_ID'           => $edd_note_id,
+					'comment_date'         => $note->comment_date,
+					'comment_date_gmt'     => $note->comment_date_gmt,
+					'comment_author'       => $note->comment_author,
 					'comment_author_email' => $note->comment_author_email,
 				) );
+
 				update_comment_meta( $edd_note_id, '_wc_order_note_id', $note->comment_ID );
 
-				$temp_log_str = "\nWC Order Note migrated ...\n";
-				$log_str .= $temp_log_str;
-				echo $temp_log_str;
+				$this->cli->success_message( "WC Order Note migrated" );
+			}
+			$progress->tick();
+
+			$this->maybe_migrate_licenses( $order, $payment_id );
+		}
+
+		$progress->finish();
+	}
+
+	public function maybe_migrate_subscriptions() {
+
+	}
+
+	public function maybe_migrate_stripe_subscriptions() {
+
+	}
+
+	public function maybe_migrate_licenses( $wc_order, $edd_payment_id ) {
+
+		if ( ! class_exists( 'WC_AM_Helpers' ) ) {
+			return $this->cli->warning_message( 'WooCommerce API Key Manager not active' );
+		}
+
+		if ( ! class_exists( 'EDD_Software_Licensing' ) ) {
+			return $this->cli->warning_message( 'EDD Software Licensing not active' );
+		}
+
+		if ( ! WC_AM_Helpers()->has_api_product( $wc_order ) ) {
+			return $this->cli->warning_message( 'This order has no API product.' );
+		}
+
+		$user_id       = $wc_order->get_customer_id();
+		$order_id      = $wc_order->get_id();
+		$customer_keys = WC_AM_Helpers()->get_users_data( $wc_order->get_customer_id() );
+		$cart_details  = edd_get_payment( $edd_payment_id )->get_cart_details();
+
+		$this->cli->success_message( "WC SL fetched" );
+
+		$wc_edd_sl_map = array();
+
+		foreach ( $wc_sl_list as $api_key => $data ) {
+
+			if ( $order_id !== $data['order_id'] ) {
+				continue;
 			}
 
+			// Add api_key to metadata for pre-existing keys
+			add_filter( 'edd_sl_insert_license_args', function( $args ) use ( $api_key ) {
+				$args['meta_input'] = array(
+					'_edd_sl_keys' => $api_key
+				);
 
-			// Software License.
-		//	$edd_sl_cpt = 'edd_license';
+				return $args;
+			} );
 
-			// Fetch WC SL
-		//	var_dump($order->order_key);
-		//	$wc_sl_list = WCAM()->helpers->get_users_activation_data( $user_id, $order->order_key );
-		//	$temp_log_str = "\nWC SL fetched ...\n";
-		//	$log_str .= $temp_log_str;
-		//	echo $temp_log_str;
-		//
-		//	$wc_edd_sl_map = array();
+			$progress = $this->cli->progress_bar( count( $cart_details ) );
 
-		//	foreach( $wc_sl_list as $license ) {
-		//		var_dump( $license );
-		//		edd_software_licensing()->generate_license();
-		//	}
+			foreach ( $cart_details as $index => $item ) {
+
+				$license = edd_software_licensing()->generate_license( $item['id'], $edd_payment_id, 'default', $item, $index );
+
+				if ( ! empty( $license ) ) {
+					$progress->tick();
+				}
+			}
+
+			$progress->finish();
 		}
+
+		$this->cli->success_message( "WC SL imported" );
+	}
+
+	public function maybe_migrate_remaining_users() {
+
+	}
+
+	public function migrate( $args, $assoc_args ) {
+
+		$this->cli = new Actions( $args, $assoc_args, self::$log_dir );
+		$this->cli->disable_emails();
+
+		if ( ! is_plugin_active( 'woocommerce/woocommerce.php' ) || ! is_plugin_active( 'easy-digital-downloads/easy-digital-downloads.php' ) ) {
+			$this->cli->error_message( "WC & EDD Not Activated." );
+		}
+
+		$this->cli->success_message( "WC & EDD activated ..." );
+
+		/**
+		 * Step 1
+		 * Category & Tag Migrate
+		 */
+		 $this->migrate_taxonomies();
+
+		/**
+		 * Step 2
+		 * Product Migrate
+		 */
+		 $this->migrate_products();
+
+		/**
+		 * Step 3
+		 * Coupons Migrate
+		 */
+		$this->migrate_coupons();
+
+		/**
+		 * Step 4
+		 * Orders Migrate (includes Software Licensing)
+		 */
+		$this->migrate_orders();
 
 		/**
 		 * Step 5
-		 * Order Notes
-		 * - This is covered up in Order Migration
+		 * Migrate WooCommerce Subscriptions to EDD Recurring Payments
 		 */
+		$this->maybe_migrate_subscriptions();
 
 		/**
 		 * Step 6
-		 * Sales Logs
-		 * - This is covered up in Order Migration.
+		 * Check for Stripe Gateways, and confirm migration
 		 */
-
-		/**
-		 * Step 7
-		 * Download Logs
-		 * - Not so important as of now.
-		 */
+		$this->maybe_migrate_stripe_subscriptions();
 
 		/**
 		 * Step 8
-		 * Software Licensing
-		 * - Not required since New Download Licences are generated while migrating new orders.
-		 * - Activated Sites will be added manually later on.
+		 * Migrate Remaining Users (Customers are migrated as part of the Orders process)
 		 */
+		$this->maybe_migrate_remaining_users();
 
-		 // Check for Software Licensing + API Key Manager, and Confirm Migration.
-		 // Check for Stripe Gateways, and confirm migration.
-		 //  || ! is_plugin_active( 'edd-software-licensing/edd-software-licenses.php' )
-
-		/**
-		 * Generate Log File
-		 */
-		 $cli->success_message( 'Migration complete! Please note: This CLI tool currently migrates most data via older APIs - we rely on EDD to migrate the newly migrated data to their new structures. Go to your WordPress Dashboard and run the upgrade routines now.' );
+		$this->cli->success_message( 'Migration complete! Please note: This CLI tool currently migrates most data via older APIs - we rely on EDD to migrate the newly migrated data to their new structures. Go to your WordPress Dashboard and run the upgrade routines now.' );
 
 	}
 
