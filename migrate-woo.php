@@ -10,6 +10,7 @@
  * License:     GPLv2
  *
  * @link https://zao.is
+ * @todo Add EDD Software Licensing Listener
  */
 
 /**
