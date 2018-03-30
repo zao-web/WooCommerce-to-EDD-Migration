@@ -15,21 +15,27 @@ namespace Migrate_Woo\CLI;
  */
 class Commands {
 
-	protected $cli;
-	protected $edd_cat_slug = 'download_category';
-	protected $wc_cat_slug  = 'product_cat';
-	protected $edd_tag_slug = 'download_tag';
-	protected $wc_tag_slug  = 'product_tag';
-	protected $wc_edd_cat_map = array();
-	protected $wc_edd_tag_map = array();
-	protected $wc_edd_product_map = array();
-
 	/**
 	 * The CLI logs directory.
 	 *
 	 * @var string
 	 */
 	protected static $log_dir = __DIR__;
+	protected $cli;
+	protected $edd_cat_slug = 'download_category';
+	protected $wc_cat_slug  = 'product_cat';
+	protected $edd_tag_slug = 'download_tag';
+	protected $wc_tag_slug  = 'product_tag';
+	protected $wc_edd_cat_map     = array();
+	protected $wc_edd_tag_map     = array();
+	protected $wc_edd_product_map = array();
+	protected $wc_edd_coupon_map = array();
+	protected $current_page       = 0;
+	protected $per_page           = 100;
+
+	public function __construct( $args = array(), $assoc_args = array() ) {
+		$this->cli = new Actions( $args, $assoc_args, self::$log_dir );
+	}
 
 	public static function set_log_dir( $log_dir ) {
 		self::$log_dir = $log_dir;
@@ -574,8 +580,6 @@ class Commands {
 		$this->cli->success_message( "WC Coupons fetched ..." );
 		$progress = $this->cli->progress_bar( count( $wc_coupon_list ) );
 
-		$wc_edd_coupon_map = array();
-
 		foreach( $wc_coupon_list as $c ) {
 
 			// WC Coupon Object
@@ -628,7 +632,7 @@ class Commands {
 
 			edd_store_discount( $data, $edd_coupon_id );
 
-			$wc_edd_coupon_map[ $c->ID ] = $edd_coupon_id;
+			$this->wc_edd_coupon_map[ $c->ID ] = $edd_coupon_id;
 			$this->cli->success_message( "WC Coupon migrated ..." );
 
 			update_post_meta( $edd_coupon_id, '_wc_coupon_id', $c->ID );
@@ -647,15 +651,24 @@ class Commands {
 		$wc_order_cpt  = 'shop_order';
 		$edd_order_cpt = 'edd_payment';
 
-		// Fetch WC Coupons
+		// Fetch WC Orders
 		$args = array(
 			'post_type'      => $wc_order_cpt,
-			'posts_per_page' => -1,
+			'posts_per_page' => $this->per_page,
 			'post_status'    => 'any',
 			'orderby'        => 'date',
 			'order'          => 'ASC',
 		);
+
+		if ( $this->current_page > 0 ) {
+			$args['offset'] = $this->current_page * $this->per_page;
+		}
+
 		$wc_order_list = get_posts( $args );
+
+		if ( empty( $wc_order_list ) ) {
+			$this->cli->warning_message( "No orders to migrate" );
+		}
 
 		$this->cli->success_message( "WC Orders fetched ..." );
 		$progress = $this->cli->progress_bar( count( $wc_order_list ) );
@@ -693,6 +706,7 @@ class Commands {
 					$status = 'pending';
 					break;
 			}
+
 			$this->cli->success_message( "Status : $status" );
 			$break_loop = false;
 
@@ -713,6 +727,11 @@ class Commands {
 						'last_name' 	=> sanitize_text_field( $last_name ),
 					)
 				);
+
+				if ( is_wp_error( $user ) ) {
+					$this->cli->confirm( "Error inserting user : " . $user->get_error_message() . ' Continue?' );
+					continue;
+				}
 			} else {
 				$user_id = $user->ID;
 				$email   = $user->user_email;
@@ -823,7 +842,7 @@ class Commands {
 					'email'      => $email,
 					'first_name' => get_post_meta( $order_id, '_billing_first_name', true ),
 					'last_name'  => get_post_meta( $order_id, '_billing_last_name', true ),
-					'discount'   => ( ! empty( $wc_coupon ) && isset( $wc_edd_coupon_map[ $wc_coupon->id ] ) && ! empty( $wc_edd_coupon_map[ $wc_coupon->id ] ) ) ? $wc_coupon->code : '',
+					'discount'   => ( ! empty( $wc_coupon ) && isset( $this->wc_edd_coupon_map[ $wc_coupon->get_id() ] ) && ! empty( $this->wc_edd_coupon_map[ $wc_coupon->get_id() ] ) ) ? $wc_coupon->get_code() : '',
 					'address'    => array(
 						'line1'   => get_post_meta( $order_id, '_billing_address_1', true ),
 						'line2'   => get_post_meta( $order_id, '_billing_address_2', true ),
@@ -848,21 +867,21 @@ class Commands {
 
 			edd_update_payment_status( $payment_id, $status );
 
-			$wc_edd_order_map[ $order_id ] = ≈;
+			$wc_edd_order_map[ $order_id ] = $payment_id;
 
 			$this->cli->success_message( "WC Order migrated" );
 
 			// Update relevent data.
-			update_post_meta( $payment_id, '_edd_payment_user_ip', get_post_meta( $order->id, '_customer_ip_address', true ) );
-			update_post_meta( $payment_id, '_wc_order_key', get_post_meta( $order->id, '_order_key', true ) );
+			update_post_meta( $payment_id, '_edd_payment_user_ip', get_post_meta( $order_id, '_customer_ip_address', true ) );
+			update_post_meta( $payment_id, '_wc_order_key', get_post_meta( $order_id, '_order_key', true ) );
 			update_post_meta( $payment_id, '_edd_payment_mode', 'live' );
-			update_post_meta( $payment_id, '_edd_completed_date', get_post_meta( $order->id, '_completed_date', true ) );
+			update_post_meta( $payment_id, '_edd_completed_date', get_post_meta( $order_id, '_completed_date', true ) );
 
-			update_post_meta( $payment_id, '_wc_order_id', $o->ID );
+			update_post_meta( $payment_id, '_wc_order_id', $order_id );
 
 			// Order Notes
 			$args = array(
-				'post_id' => $order->id,
+				'post_id' => $order_id,
 				'approve' => 'approve',
 			);
 
@@ -892,9 +911,12 @@ class Commands {
 			$progress->tick();
 
 			$this->maybe_migrate_licenses( $order, $payment_id );
+
 		}
 
 		$progress->finish();
+		$this->current_page++;
+		$this->migrate_orders();
 	}
 
 	public function maybe_migrate_subscriptions() {
@@ -966,7 +988,9 @@ class Commands {
 
 	public function migrate( $args, $assoc_args ) {
 
-		$this->cli = new Actions( $args, $assoc_args, self::$log_dir );
+		if ( is_null( $this->cli ) ) {
+			$this->cli = new Actions( $args, $assoc_args, self::$log_dir );
+		}
 		$this->cli->disable_emails();
 
 		if ( ! is_plugin_active( 'woocommerce/woocommerce.php' ) || ! is_plugin_active( 'easy-digital-downloads/easy-digital-downloads.php' ) ) {
