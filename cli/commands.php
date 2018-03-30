@@ -615,101 +615,49 @@ class Commands {
 			edd_store_discount( $data, $edd_coupon_id );
 
 			$wc_edd_coupon_map[ $c->ID ] = $edd_coupon_id;
-			$cli->success_message( "WC Coupon migrated ..." );
+			$this->cli->success_message( "WC Coupon migrated ..." );
 
 			update_post_meta( $edd_coupon_id, '_wc_coupon_id', $c->ID );
-			$progress( 'tick' );
+			$progress->tick();
 		}
 
-		$progress( 'finish' );
+		$progress->finish();
 	}
 
-	public function migrate_orders( $cli ) {
+	public function migrate_orders() {
 
-	}
+		$this->cli->confirm( 'Do you want to migrate WooCommerce orders to EDD orders?' );
 
-	public function maybe_migrate_subscriptions( $cli ) {
+		$this->cli::stop_the_insanity( 3 );
 
-	}
-
-	public function maybe_migrate_stripe_subscriptions( $cli ) {
-
-	}
-
-	public function migrate( $args, $assoc_args ) {
-		$cli = new Actions( $args, $assoc_args, self::$log_dir );
-		$cli->disable_emails();
-
-		if ( ! is_plugin_active( 'woocommerce/woocommerce.php' ) || ! is_plugin_active( 'easy-digital-downloads/easy-digital-downloads.php' ) ) {
-			$cli->error_message( "WC & EDD Not Activated." );
-		}
-
-		$cli->success_message( "WC & EDD activated ..." );
-
-		/**
-		 * Step 1
-		 * Category & Tag Migrate
-		 */
-		 $this->migrate_taxonomies( $cli );
-
-		/**
-		 * Step 2
-		 * Product Migrate
-		 */
-		 $this->migrate_products( $cli );
-
-		/**
-		 * Step 3
-		 * Coupons Migrate
-		 */
-		$this->migrate_coupons( $cli );
-
-		/**
-		 * Step 4
-		 * Orders Migrate
-		 */
-		$this->migrate_orders( $cli );
-
-		/**
-		 * Step 4
-		 * Orders Migrate
-		 */
-		$this->migrate_orders( $cli );
-		
-		/**
-		 * Step 4
-		 * Orders Migrate
-		 */
-		$this->migrate_orders( $cli );
-
-		$wc_order_cpt = 'shop_order';
+		$wc_order_cpt  = 'shop_order';
 		$edd_order_cpt = 'edd_payment';
 
 		// Fetch WC Coupons
 		$args = array(
-			'post_type' => $wc_order_cpt,
+			'post_type'      => $wc_order_cpt,
 			'posts_per_page' => -1,
-			'post_status' => 'any',
-		    'orderby' => 'date',
-		    'order' => 'ASC',
+			'post_status'    => 'any',
+			'orderby'        => 'date',
+			'order'          => 'ASC',
 		);
 		$wc_order_list = get_posts( $args );
-		$temp_log_str = "\nWC Orders fetched ...\n";
-		$log_str .= $temp_log_str;
-		echo $temp_log_str;
+
+		$this->cli->success_message( "WC Orders fetched ..." );
+		$progress = $this->cli->progress_bar( count( $wc_order_list ) );
 
 		$wc_edd_order_map = array();
 
 		foreach( $wc_order_list as $o ) {
 
 			// WC Order Object
-			$order = new WC_Order( $o );
-			$temp_log_str = "\nOrder - $o->ID\n";
-			$log_str .= $temp_log_str;
-			echo $temp_log_str;
+			$order = new \WC_Order( $o );
+			$order_id = $order->get_id();
+
+			$this->cli->success_message( "Order - $order_id" );
 
 			// Process Order Status
-			switch( $order->post_status ) {
+			switch( $order->get_status() ) {
 				case 'wc-pending':
 				case 'wc-processing':
 				case 'wc-on-hold':
@@ -731,21 +679,18 @@ class Commands {
 					$status = 'pending';
 					break;
 			}
-
-			$temp_log_str = "\nStatus : $status\n";
-			$log_str .= $temp_log_str;
-			echo $temp_log_str;
-
+			$this->cli->success_message( "Status : $status" );
 			$break_loop = false;
 
 			// Decide the customer from email used. If new then create new.
-			$email = get_post_meta( $o->ID, '_billing_email', true );
-			$user = get_user_by( 'email', $email );
-			if( ! $user ) {
-				$first_name = get_post_meta( $o->ID, '_billing_first_name', true );
-				$last_name = get_post_meta( $o->ID, '_billing_last_name', true );
-				$password = wp_generate_password();
-				$user_id = wp_insert_user(
+			$email = get_post_meta( $order_id, '_billing_email', true );
+			$user  = get_user_by( 'email', $email );
+
+			if ( ! $user ) {
+				$first_name = get_post_meta( $order_id, '_billing_first_name', true );
+				$last_name  = get_post_meta( $order_id, '_billing_last_name', true );
+				$password   = wp_generate_password();
+				$user_id    = wp_insert_user(
 					array(
 						'user_email' 	=> sanitize_email( $email ),
 						'user_login' 	=> sanitize_email( $email ),
@@ -756,63 +701,64 @@ class Commands {
 				);
 			} else {
 				$user_id = $user->ID;
-				$email = $user->user_email;
+				$email   = $user->user_email;
 			}
 
-			echo "\nUSER ID : ";
-			var_dump($user_id);
-			echo "\n";
+			$this->cli->success_message( "USER ID : $user_id" );
 
-			if( $user_id instanceof WP_Error ) {
-				$temp_log_str = "\nUser could not be created. Invalid Email. So order could not be migrated ...\n";
-				$log_str .= $temp_log_str;
-				echo $temp_log_str;
+			if ( is_wp_error( $user_id ) ) {
+				$this->cli->warning_message( "User could not be created. Invalid Email. So order could not be migrated : ", $user_id );
+				$progress->tick();
 				continue;
 			}
 
 			// Prepare Products array & cart array for the order.
-			$downloads = array();
+			$downloads    = array();
 			$cart_details = array();
-			$wc_items = $order->get_items();
+			$wc_items     = $order->get_items();
 
 			// Decide whether any coupon is used for discount or not.
 			$wc_coupon = $order->get_used_coupons();
-			if( ! empty( $wc_coupon ) ) {
-				$wc_coupon = new WC_Coupon( $wc_coupon[0] );
+
+			if ( ! empty( $wc_coupon ) ) {
+				$wc_coupon = new \WC_Coupon( $wc_coupon[0] );
 			} else {
 				$wc_coupon = null;
 			}
 
 			// Line Items from the WC Order
-			foreach( $wc_items as $item ) {
-				$product = $order->get_product_from_item( $item );
+			foreach ( $wc_items as $item ) {
+				$product    = $order->get_product_from_item( $item );
+				$product_id = $product->get_id();
 
-				$item[ 'quantity' ] = $item[ 'qty' ];
-				$item[ 'data' ] = $product;
+				$item['quantity'] = $item['qty'];
+				$item['data']     = $product;
 
-				if( ! isset( $wc_edd_product_map[ $product->id ] ) || empty( $wc_edd_product_map[ $product->id ] ) ) {
-					$temp_log_str = "\nEDD Product Not available for this WC Product.\n";
-					$log_str .= $temp_log_str;
-					echo $temp_log_str;
+				if ( ! isset( $wc_edd_product_map[ $product_id ] ) || empty( $wc_edd_product_map[ $product_id ] ) ) {
+					$this->cli->warning_message( "EDD Product Not available for this WC Product : ", $product );
+					$progress->tick();
 					$break_loop = true;
 					break;
 				}
-				$download = edd_get_download( $wc_edd_product_map[ $product->id ] );
+
+				$download    = edd_get_download( $wc_edd_product_map[ $product_id ] );
+
 				$item_number = array(
-					'id' => $download->ID,
-				    'options' => array(),
-				    'quantity' => $item[ 'qty' ],
+					'id'       => $download->ID,
+					'options'  => array(),
+					'quantity' => $item[ 'qty' ],
 				);
+
 				$downloads[] = $item_number;
 
-				$_wc_cart_disc_meta = get_post_meta( $order->id, '_cart_discount', true );
+				$_wc_cart_disc_meta = get_post_meta( $order_id, '_cart_discount', true );
 				$_wc_cart_disc_meta = floatval( $_wc_cart_disc_meta );
 
-				$_wc_order_disc_meta = get_post_meta( $order->id, '_order_discount', true );
+				$_wc_order_disc_meta = get_post_meta( $order_id, '_order_discount', true );
 				$_wc_order_disc_meta = floatval( $_wc_order_disc_meta );
 
 				// Cart Discount Logic for migration - Two Types : 1. Cart Discount 2. Product Discount
-				if( ! empty( $_wc_cart_disc_meta ) ) {
+				if ( ! empty( $_wc_cart_disc_meta ) ) {
 					$item_price = $item[ 'line_subtotal' ];
 					$discount = ( floatval( $item[ 'line_subtotal' ] ) - floatval( $item[ 'line_total' ] ) ) * $item[ 'qty' ];
 					$subtotal = ( $item[ 'line_subtotal' ] * $item[ 'qty' ] ) - $discount;
@@ -824,28 +770,6 @@ class Commands {
 					$price = $subtotal;  // $item[ 'line_total' ]
 				}
 
-				$temp_log_str = "=======================================================\n";
-				$log_str .= $temp_log_str;
-				echo $temp_log_str;
-				$temp_log_str = "line_subtotal/item_price : ".$item_price."\n";
-				$log_str .= $temp_log_str;
-				echo $temp_log_str;
-				$temp_log_str = "line_total : ".$item[ 'line_total' ]."\n";
-				$log_str .= $temp_log_str;
-				echo $temp_log_str;
-				$temp_log_str = "discount : ".$discount."\n";
-				$log_str .= $temp_log_str;
-				echo $temp_log_str;
-				$temp_log_str = "subtotal : ".$subtotal."\n";
-				$log_str .= $temp_log_str;
-				echo $temp_log_str;
-				$temp_log_str = "price : ".$price."\n";
-				$log_str .= $temp_log_str;
-				echo $temp_log_str;
-				$temp_log_str = "=======================================================\n";
-				$log_str .= $temp_log_str;
-				echo $temp_log_str;
-
 				$cart_details[] = array(
 					'id'          => $download->ID,
 					'name'        => $download->post_title,
@@ -856,66 +780,65 @@ class Commands {
 					'discount'    => $discount,
 					'fees'        => array(),
 					'tax'         => 0,
-					'quantity'    => $item[ 'qty' ],
+					'quantity'    => $item['qty'],
 				);
 			}
 
 			// If Products & Cart array is not prepared ( loop broken in between ) then skip the order.
-			if( $break_loop ) {
-				$temp_log_str = "\nWC Order could not be migrated ...\n";
-				$log_str .= $temp_log_str;
-				echo $temp_log_str;
+			if ( $break_loop ) {
+				$this->cli->warning_message( "WC Order could not be migrated" );
+				$progress->tick();
 				continue;
 			}
 
 			// If no products found in the order then also skip the order.
-			if( empty( $downloads ) || empty( $cart_details ) ) {
-				$temp_log_str = "\nNo Products found. So order not migrated ...\n";
-				$log_str .= $temp_log_str;
-				echo $temp_log_str;
+			if ( empty( $downloads ) || empty( $cart_details ) ) {
+				$this->cli->warning_message( "No products found, so order not migrated" );
+				$progress->tick();
 				continue;
 			}
 
 			$data = array(
-				'currency' => 'USD',
-				'downloads' => $downloads,
+				'currency'     => 'USD', //TODO: Support non-USD currencies
+				'downloads'    => $downloads,
 				'cart_details' => $cart_details,
-				'price' => get_post_meta( $order->id, '_order_total', true ),
-				'purchase_key' => get_post_meta( $order->id, '_order_key', true ),
-				'user_info' => array(
-					'id' => $user_id,
-					'email' => $email,
-					'first_name' => get_post_meta( $order->id, '_billing_first_name', true ),
-				    'last_name' => get_post_meta( $order->id, '_billing_last_name', true ),
-					'discount' => ( ! empty( $wc_coupon ) && isset( $wc_edd_coupon_map[ $wc_coupon->id ] ) && ! empty( $wc_edd_coupon_map[ $wc_coupon->id ] ) ) ? $wc_coupon->code : '',
-				    'address' => array(
-					    'line1' => get_post_meta( $order->id, '_billing_address_1', true ),
-						'line2' => get_post_meta( $order->id, '_billing_address_2', true ),
-						'city' => get_post_meta( $order->id, '_billing_city', true ),
-						'zip' => get_post_meta( $order->id, '_billing_postcode', true ),
-						'country' => get_post_meta( $order->id, '_billing_country', true ),
-						'state' => get_post_meta( $order->id, '_billing_state', true ),
-				    ),
+				'price'        => get_post_meta( $order_id, '_order_total', true ),
+				'purchase_key' => get_post_meta( $order_id, '_order_key', true ),
+				'user_info'    => array(
+					'id'         => $user_id,
+					'email'      => $email,
+					'first_name' => get_post_meta( $order_id, '_billing_first_name', true ),
+					'last_name'  => get_post_meta( $order_id, '_billing_last_name', true ),
+					'discount'   => ( ! empty( $wc_coupon ) && isset( $wc_edd_coupon_map[ $wc_coupon->id ] ) && ! empty( $wc_edd_coupon_map[ $wc_coupon->id ] ) ) ? $wc_coupon->code : '',
+					'address'    => array(
+						'line1'   => get_post_meta( $order_id, '_billing_address_1', true ),
+						'line2'   => get_post_meta( $order_id, '_billing_address_2', true ),
+						'city'    => get_post_meta( $order_id, '_billing_city', true ),
+						'zip'     => get_post_meta( $order_id, '_billing_postcode', true ),
+						'country' => get_post_meta( $order_id, '_billing_country', true ),
+						'state'   => get_post_meta( $order_id, '_billing_state', true ),
+					),
 				),
-				'user_id' => $user_id,
-			    'user_email' => $email,
-			    'status' => 'pending',
-			    'parent' => $o->post_parent,
-			    'post_date' => $o->post_date,
-			    'gateway' => get_post_meta( $order->id, '_payment_method', true ),
+				'user_id'    => $user_id,
+				'user_email' => $email,
+				'status'     => 'pending',
+				'parent'     => $o->post_parent,
+				'post_date'  => $o->post_date,
+				'gateway'    => get_post_meta( $order_id, '_payment_method', true ),
 			);
 
 			$payment_id = edd_insert_payment( $data );
+
 			remove_action( 'edd_update_payment_status', 'edd_trigger_purchase_receipt', 10 );
-			remove_action( 'edd_complete_purchase', 'edd_trigger_purchase_receipt', 999 );
+			remove_action( 'edd_complete_purchase'    , 'edd_trigger_purchase_receipt', 999 );
+
 			edd_update_payment_status( $payment_id, $status );
 
-			$wc_edd_order_map[ $o->ID ] = $payment_id;
-			$temp_log_str = "\nWC Order migrated ...\n";
-			$log_str .= $temp_log_str;
-			echo $temp_log_str;
+			$wc_edd_order_map[ $order_id ] = ≈;
 
-			// Update relavent data.
+			$this->cli->success_message( "WC Order migrated" );
+
+			// Update relevent data.
 			update_post_meta( $payment_id, '_edd_payment_user_ip', get_post_meta( $order->id, '_customer_ip_address', true ) );
 			update_post_meta( $payment_id, '_wc_order_key', get_post_meta( $order->id, '_order_key', true ) );
 			update_post_meta( $payment_id, '_edd_payment_mode', 'live' );
