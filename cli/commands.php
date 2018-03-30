@@ -320,6 +320,7 @@ class Commands {
 						$this->cli->success_message( "Variation - $variation->ID..." );
 
 						// Downloadable Files
+						// TODO: Map Variation to Price Assignment
 						$wc_dl_files       = maybe_unserialize( get_post_meta( $variation->ID, '_downloadable_files', true ) );
 						$edd_dl_files      = array();
 						$edd_dl_files_slug = 'edd_download_files';
