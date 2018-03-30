@@ -529,19 +529,22 @@ class Commands {
 				// Migrate Rating
 				update_comment_meta( $edd_review_id, '_wc_rating', get_comment_meta( $comment->comment_ID, 'rating', true ) );
 
-				$cli->success_message( "WC Review migrated ..." );
+				$this->cli->success_message( "WC Review migrated ..." );
 			}
 
 			// Earnings
 			// TODO - Do it when migrating orders i.e. Payment History
-			$progress( 'tick' );
+			$progress->tick();
 
 		}
 
-		$progress( 'finish' );
+		$progress->finish();
 	}
 
-	public function migrate_coupons( $cli ) {
+	public function migrate_coupons() {
+		$this->cli->confirm( 'Do you want to migrate WooCommerce coupons to EDD discounts?' );
+		$this->cli::stop_the_insanity( 3 );
+
 		$wc_coupon_cpt  = 'shop_coupon';
 		$edd_coupon_cpt = 'edd_discount';
 
@@ -554,8 +557,8 @@ class Commands {
 
 		$wc_coupon_list = get_posts( $args );
 
-		$cli->success_message( "WC Coupons fetched ..." );
-		$progress = $cli->progress_bar( count( $wc_coupon_list ) );
+		$this->cli->success_message( "WC Coupons fetched ..." );
+		$progress = $this->cli->progress_bar( count( $wc_coupon_list ) );
 
 		$wc_edd_coupon_map = array();
 
@@ -564,9 +567,9 @@ class Commands {
 			// WC Coupon Object
 			$code   = $c->post_title;
 			$status = ( $c->post_status == 'publish' ) ? 'active' : 'inactive';
-			$coupon = new WC_Coupon( $code );
+			$coupon = new \WC_Coupon( $code );
 
-			$cli->success_message( "Coupon - $c->ID" );
+			$this->cli->success_message( "Coupon - $c->ID" );
 
 			$data = array(
 				'post_content' => $c->post_content,
@@ -585,9 +588,9 @@ class Commands {
 
 			// Adjust according to EDD Format
 			$expiry_date = get_post_meta( $c->ID, 'expiry_date', true );
-			$expiry_date = new DateTime( $expiry_date );
+			$expiry_date = new \DateTime( $expiry_date );
 
-			$expiry_date->add( new DateInterval( 'PT23H59M59S' ) );
+			$expiry_date->add( new \DateInterval( 'PT23H59M59S' ) );
 
 			$discount_type = get_post_meta( $c->ID, 'discount_type', true );
 
