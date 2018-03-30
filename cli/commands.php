@@ -7,8 +7,10 @@ namespace Migrate_Woo\CLI;
  * @todo Update for new EDD APIs
  * @todo Update for new WC APIs
  * @todo Support pagination on API calls for large amounts of data.
- * @todo Categories and tags not mapping properly
  * @todo Reviews not mapping
+ * @todo Map subscription
+ * @todo support sale price
+ *
  * @link With thanks to https://github.com/rtCamp/woocommerce-to-easydigitaldownloads
  */
 class Commands {
@@ -20,6 +22,7 @@ class Commands {
 	protected $wc_tag_slug  = 'product_tag';
 	protected $wc_edd_cat_map = array();
 	protected $wc_edd_tag_map = array();
+	protected $wc_edd_product_map = array();
 
 	/**
 	 * The CLI logs directory.
@@ -168,8 +171,6 @@ class Commands {
 
 		$progress = $this->cli->progress_bar( count( $wc_product_list ) );
 
-		$wc_edd_product_map = array();
-
 		foreach( $wc_product_list as $p ) {
 
 			// WC Product Object
@@ -227,7 +228,7 @@ class Commands {
 				continue;
 			}
 
-			$wc_edd_product_map[ $product_id ] = $edd_product_id;
+			$this->wc_edd_product_map[ $product_id ] = $edd_product_id;
 
 			$this->cli->success_message( "WC Product migrated..." );
 			$progress->tick();
@@ -508,7 +509,7 @@ class Commands {
 				$this->cli->success_message( "WC Review - $comment->comment_ID" );
 
 				$comment_data = array(
-					'comment_post_ID'      => $wc_edd_product_map[ $product_id ],
+					'comment_post_ID'      => $this->wc_edd_product_map[ $product_id ],
 					'comment_author'       => $comment->comment_author,
 					'comment_author_email' => $comment->comment_author_email,
 					'comment_content'      => $comment->comment_content,
@@ -734,14 +735,14 @@ class Commands {
 				$item['quantity'] = $item['qty'];
 				$item['data']     = $product;
 
-				if ( ! isset( $wc_edd_product_map[ $product_id ] ) || empty( $wc_edd_product_map[ $product_id ] ) ) {
+				if ( ! isset( $this->wc_edd_product_map[ $product_id ] ) || empty( $this->wc_edd_product_map[ $product_id ] ) ) {
 					$this->cli->warning_message( "EDD Product Not available for this WC Product : ", $product );
 					$progress->tick();
 					$break_loop = true;
 					break;
 				}
 
-				$download    = edd_get_download( $wc_edd_product_map[ $product_id ] );
+				$download    = edd_get_download( $this->wc_edd_product_map[ $product_id ] );
 
 				$item_number = array(
 					'id'       => $download->ID,
