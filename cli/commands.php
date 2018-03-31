@@ -768,7 +768,10 @@ class Commands {
 			// Line Items from the WC Order
 			foreach ( $wc_items as $item ) {
 				$product    = $order->get_product_from_item( $item );
-				$product_id = $product->get_id();
+				$parent_id  = $product->get_parent_id();
+				$product_id = $parent_id ? $parent_id : $product->get_id();
+
+				//TODO Better support for variation mapping.
 
 				$item['quantity'] = $item['qty'];
 				$item['data']     = $product;
