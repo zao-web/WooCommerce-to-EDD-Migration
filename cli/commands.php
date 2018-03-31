@@ -954,7 +954,7 @@ class Commands {
 		$user_id       = $wc_order->get_customer_id();
 		$order_id      = $wc_order->get_id();
 		$customer_keys = WC_AM_Helpers()->get_users_data( $wc_order->get_customer_id() );
-		$cart_details  = edd_get_payment( $edd_payment_id )->get_cart_details();
+		$cart_details  = edd_get_payment( $edd_payment_id )->cart_details;
 
 		$this->cli->success_message( "WC SL fetched" );
 
