@@ -713,6 +713,11 @@ class Commands {
 
 			// Decide the customer from email used. If new then create new.
 			$email = get_post_meta( $order_id, '_billing_email', true );
+
+			if ( empty( $email ) ) {
+				$email = get_user_by( 'id', $order->get_customer_id() )->user_email;
+			}
+
 			$user  = get_user_by( 'email', $email );
 
 			if ( ! $user ) {
@@ -738,13 +743,13 @@ class Commands {
 				$email   = $user->user_email;
 			}
 
-			$this->cli->success_message( "USER ID : $user_id" );
-
 			if ( is_wp_error( $user_id ) ) {
 				$this->cli->warning_message( "User could not be created. Invalid Email. So order could not be migrated : ", $user_id );
 				$progress->tick();
 				continue;
 			}
+
+			$this->cli->success_message( "USER ID : $user_id" );
 
 			// Prepare Products array & cart array for the order.
 			$downloads    = array();
@@ -769,7 +774,7 @@ class Commands {
 				$item['data']     = $product;
 
 				if ( ! isset( $this->wc_edd_product_map[ $product_id ] ) || empty( $this->wc_edd_product_map[ $product_id ] ) ) {
-					$this->cli->warning_message( "EDD Product Not available for this WC Product : ", $product );
+					$this->cli->warning_message( "EDD Product Not available for this WC Product : ", compact( 'item', 'product', 'product_idUser could not be created' ) );
 					$progress->tick();
 					$break_loop = true;
 					break;
@@ -909,6 +914,7 @@ class Commands {
 
 				$this->cli->success_message( "WC Order Note migrated" );
 			}
+
 			$progress->tick();
 
 			$this->maybe_migrate_licenses( $order, $payment_id );
