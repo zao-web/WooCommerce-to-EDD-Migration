@@ -10,6 +10,7 @@ namespace Migrate_Woo\CLI;
  * @todo Reviews not mapping
  * @todo Map subscription
  * @todo support sale price
+ * @todo Currently, variation products are not being mapped as part of the product map.
  *
  * @link With thanks to https://github.com/rtCamp/woocommerce-to-easydigitaldownloads
  */
@@ -31,7 +32,7 @@ class Commands {
 	protected $wc_edd_product_map = array();
 	protected $wc_edd_coupon_map = array();
 	protected $current_page       = 0;
-	protected $per_page           = 100;
+	protected $per_page           = 400;
 
 	public function __construct( $args = array(), $assoc_args = array() ) {
 		$this->cli = new Actions( $args, $assoc_args, self::$log_dir );
