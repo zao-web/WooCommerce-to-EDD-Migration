@@ -960,7 +960,7 @@ class Commands {
 
 		$wc_edd_sl_map = array();
 
-		foreach ( $wc_sl_list as $api_key => $data ) {
+		foreach ( $customer_keys as $api_key => $data ) {
 
 			if ( $order_id !== $data['order_id'] ) {
 				continue;
