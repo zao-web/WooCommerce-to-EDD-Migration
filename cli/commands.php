@@ -685,22 +685,22 @@ class Commands {
 			$this->cli->success_message( "Order - $order_id" );
 
 			// Process Order Status
-			switch( $order->get_status() ) {
-				case 'wc-pending':
-				case 'wc-processing':
-				case 'wc-on-hold':
+			switch ( $order->get_status() ) {
+				case 'pending':
+				case 'processing':
+				case 'on-hold':
 					$status = 'pending';
 					break;
-				case 'wc-completed':
+				case 'completed':
 					$status = 'publish';
 					break;
-				case 'wc-cancelled':
+				case 'cancelled':
 					$status = 'abandoned';
 					break;
-				case 'wc-refunded':
+				case 'refunded':
 					$status = 'refunded';
 					break;
-				case 'wc-failed':
+				case 'failed':
 					$status = 'failed';
 					break;
 				default:
