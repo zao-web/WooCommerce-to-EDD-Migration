@@ -77,6 +77,28 @@ class Commands {
 		return $attach_id;
 	}
 
+	public function map_variation_to_price_id( $item, $download ) {
+		$variable_prices = edd_get_variable_prices( $download->ID );
+
+		if ( empty( $variable_prices ) ) {
+			return array();
+		}
+
+		$item_subtotal = floatval( $item->get_subtotal() );
+
+		$price_id = 0;
+
+		foreach ( $variable_prices as $price_id => $price ) {
+			$price = floatval( $price['amount'] ) + floatval( $price['signup_fee'] );
+
+			if ( $price === $item_subtotal ) {
+				$price_id = $item_subtotal;
+			}
+		}
+
+		return array( 'quantity' => $item['qty'], 'price_id' => $price_id );
+
+	}
 	/**
 	 * Step One: Migrate Taxonomies.
 	 *
@@ -787,27 +809,7 @@ class Commands {
 
 				$item_number = array(
 					'id'       => $download->ID,
-					'options'  => function( $item, $download ) {
-						$variable_prices = edd_get_variable_prices( $download->ID );
-
-						if ( empty( $variable_prices ) ) {
-							return array();
-						}
-
-						$item_subtotal = floatval( $item->get_subtotal() );
-
-						$price_id = 0;
-
-						foreach ( $variable_prices as $price_id => $price ) {
-							$price = floatval( $price['amount'] ) + floatval( $price['signup_fee'] );
-
-							if ( $price === $item_subtotal ) {
-								$price_id = $item_subtotal;
-							}
-						}
-
-						return array( 'quantity' => $item['qty'], 'price_id' => $price_id );
-					},
+					'options'  => $this->map_variation_to_price_id( $item, $download ),
 					'quantity' => $item['qty'],
 				);
 
