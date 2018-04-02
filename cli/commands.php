@@ -1020,7 +1020,7 @@ class Commands {
 
 				//TODO Support different license lengths.
 				$license = edd_software_licensing()->generate_license( $item['id'], $edd_payment_id, 'default', $item, $index, array(
-					'license_length' => '+1 year'
+					'license_length' => '1 year'
 				) );
 
 				if ( ! empty( $license ) ) {
