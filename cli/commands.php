@@ -722,7 +722,7 @@ class Commands {
 					$status = 'publish';
 					break;
 				case 'cancelled':
-					$status = 'abandoned';
+					$status = 'cancelled';
 					break;
 				case 'refunded':
 					$status = 'refunded';
