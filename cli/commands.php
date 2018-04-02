@@ -787,8 +787,28 @@ class Commands {
 
 				$item_number = array(
 					'id'       => $download->ID,
-					'options'  => array(),
-					'quantity' => $item[ 'qty' ],
+					'options'  => function( $item, $download ) {
+						$variable_prices = edd_get_variable_prices( $download->ID );
+
+						if ( empty( $variable_prices ) ) {
+							return array();
+						}
+
+						$item_subtotal = floatval( $item->get_subtotal() );
+
+						$price_id = 0;
+
+						foreach ( $variable_prices as $price_id => $price ) {
+							$price = floatval( $price['amount'] ) + floatval( $price['signup_fee'] );
+
+							if ( $price === $item_subtotal ) {
+								$price_id = $item_subtotal;
+							}
+						}
+
+						return array( 'quantity' => $item['qty'], 'price_id' => $price_id );
+					},
+					'quantity' => $item['qty'],
 				);
 
 				$downloads[] = $item_number;
@@ -979,7 +999,10 @@ class Commands {
 
 			foreach ( $cart_details as $index => $item ) {
 
-				$license = edd_software_licensing()->generate_license( $item['id'], $edd_payment_id, 'default', $item, $index );
+				//TODO Support different license lengths.
+				$license = edd_software_licensing()->generate_license( $item['id'], $edd_payment_id, 'default', $item, $index, array(
+					'license_length' => '+1 year'
+				) );
 
 				if ( ! empty( $license ) ) {
 					$progress->tick();
