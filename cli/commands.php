@@ -99,6 +99,11 @@ class Commands {
 		return array( 'quantity' => $item['qty'], 'price_id' => $price_id );
 
 	}
+
+	public function is_renewal_payment( $order ) {
+		return absint( $order->get_meta( '_subscription_renewal' ) );
+	}
+
 	/**
 	 * Step One: Migrate Taxonomies.
 	 *
@@ -698,7 +703,7 @@ class Commands {
 
 		$wc_edd_order_map = array();
 
-		foreach( $wc_order_list as $o ) {
+		foreach ( $wc_order_list as $o ) {
 
 			// WC Order Object
 			$order = new \WC_Order( $o );
@@ -728,6 +733,18 @@ class Commands {
 				default:
 					$status = 'pending';
 					break;
+			}
+
+			//TODO: Investigate whether or not EDD supports a "pending" status on renewals, since renewals are themselves a status.
+
+			$parent = $o->post_parent;
+
+			if ( $this->is_renewal_payment( $order ) ) {
+				$status = 'edd_subscription';
+				if ( function_exists( 'wcs_get_subscriptions_for_renewal_order' ) ) {
+					$sub    = array_pop( wcs_get_subscriptions_for_renewal_order( $order_id ) );
+					$parent = $sub->get_parent_id();
+				}
 			}
 
 			$this->cli->success_message( "Status : $status" );
@@ -886,7 +903,7 @@ class Commands {
 				'user_id'    => $user_id,
 				'user_email' => $email,
 				'status'     => 'pending',
-				'parent'     => $o->post_parent,
+				'parent'     => $parent,
 				'post_date'  => $o->post_date,
 				'gateway'    => get_post_meta( $order_id, '_payment_method', true ),
 			);
