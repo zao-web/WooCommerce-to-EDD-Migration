@@ -758,14 +758,16 @@ class Commands {
 
 			//TODO: Investigate whether or not EDD supports a "pending" status on renewals, since renewals are themselves a status.
 
-			$parent = $o->post_parent;
+			$parent     = $o->post_parent;
+			$is_renewal = $this->is_renewal_payment( $order );
 
-			if ( $this->is_renewal_payment( $order ) ) {
+			if ( $is_renewal ) {
 				$status = 'edd_subscription';
 				if ( function_exists( 'wcs_get_subscriptions_for_renewal_order' ) ) {
 					$sub    = array_pop( wcs_get_subscriptions_for_renewal_order( $order_id ) );
 					$parent = $sub->get_parent_id();
 				}
+				$this->cli->success_message( "Order #$order_id is a renewal order" );
 			}
 
 			$this->cli->success_message( "Status : $status" );
@@ -850,6 +852,10 @@ class Commands {
 					'options'  => $this->map_variation_to_price_id( $item, $download ),
 					'quantity' => $item['qty'],
 				);
+
+				if ( $is_renewal ) {
+					$item_number['options']['is_renewal'] = '1';
+				}
 
 				$downloads[] = $item_number;
 
