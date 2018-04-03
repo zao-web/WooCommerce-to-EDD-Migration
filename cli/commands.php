@@ -940,8 +940,9 @@ class Commands {
 			update_post_meta( $payment_id, '_wc_order_key', get_post_meta( $order_id, '_order_key', true ) );
 			update_post_meta( $payment_id, '_edd_payment_mode', 'live' );
 			update_post_meta( $payment_id, '_edd_completed_date', get_post_meta( $order_id, '_completed_date', true ) );
-
 			update_post_meta( $payment_id, '_wc_order_id', $order_id );
+
+			$this->maybe_migrate_subscription_meta( $payment_id, $order );
 
 			// Order Notes
 			$args = array(
@@ -984,6 +985,42 @@ class Commands {
 		$this->migrate_orders();
 	}
 
+	public function reset_pagination_args() {
+		$this->current_page = 0;
+		$this->per_page     = 400;
+	}
+
+	public function maybe_migrate_subscription_meta( $edd_payment_id, $wc_order ) {
+		$payment_method = $wc_order->get_payment_method();
+
+		$meta_map = [];
+
+		if ( 'stripe' === $payment_method ) {
+			$meta_map['_stripe_customer_id'] = '_edd_stripe_customer_id';
+			$meta_map['_stripe_card_id']     = '_edd_stripe_card_id';   // Not used in EDD, but saving for posterity.
+			$meta_map['_stripe_source_id']   = '_edd_stripe_source_id'; // Not used in EDD, but saving for posterity.
+		}
+
+		if ( 'paypal' === $payment_method ) {
+			$meta_map['Payer PayPal address'] = '_edd_paypal_payer'; // TODO: EDD sets the customer_email to this if it exists.
+			$meta_map['_paypal_subscription_id'] = '_edd_subscription_id'; //TODO Determine the correct subscription ID meta key here.
+		}
+
+		foreach ( $meta_map as $wc_key => $edd_key ) {
+			$value = $wc_order->get_meta( $wc_key );
+
+			if ( ! empty( $value ) ) {
+				update_post_meta( $edd_payment_id, $edd_key, $value );
+				$this->cli->success_message( "Migrated $wc_key of $value to $edd_key" );
+			}
+		}
+	}
+
+	/**
+	 * Copied from EDD Recurring Payments, but removed coupling to admin redirects.
+	 *
+	 * @return [type] [description]
+	 */
 	public function maybe_migrate_subscriptions() {
 
 	}
