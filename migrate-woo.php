@@ -217,6 +217,18 @@ final class Migrate_Woo_Plugin {
 	 */
 	public function hooks() {
 		add_action( 'init', array( $this, 'init' ), 1 );
+		add_action( 'admin_head', array( $this, 'hide_notices' ) );
+		// add_action( 'edd_sl_pre_set_expiration', array( $this, 'log_expiration' ), 10, 2 );
+	}
+
+	public function log_expiration( $id, $expiration ) {
+		trigger_error( $expiration );
+	}
+
+	public function hide_notices() {
+		?>
+		<style>.media-upload-form .notice, .media-upload-form div.error, .wrap .notice, .wrap div.error, .wrap div.updated { display: none; }</style>
+		<?php
 	}
 
 	/**
