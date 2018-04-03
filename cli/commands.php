@@ -1023,6 +1023,208 @@ class Commands {
 	 */
 	public function maybe_migrate_subscriptions() {
 
+		if ( ! class_exists( 'EDD_Subscriptions_DB' ) ) {
+			$this->cli->warning_message( "EDD_Subscriptions_DB not available" );
+			return;
+		}
+
+		$test_mode  = edd_is_test_mode() ? 'Test' : 'Live';
+
+		$this->cli->confirm( "Shop is currently in $test_mode mode. This means any Stripe API calls will be made to the $test_mode environment. Do you want to proceed?" );
+
+		global $wpdb;
+
+		$subs = new EDD_Subscriptions_DB;
+
+		$table_exists = get_option( $subs->table_name . '_db_version' );
+
+		if ( ! $table_exists ) {
+			@$subs->create_table();
+		}
+
+		// Check if we have any payments before moving on
+		$has_payments = $wpdb->get_col( "SELECT ID FROM $wpdb->posts WHERE post_type = 'edd_payment' LIMIT 1" );
+
+		if ( empty( $has_payments ) ) {
+			$this->cli->error_message( "No subscription payments found to migrate." );
+		}
+
+		$total = $this->total;
+
+		if ( ! $total ) {
+			$total_sql   = "SELECT COUNT(ID) as total_payments FROM $wpdb->posts WHERE post_type = 'edd_payment' AND post_status IN ('publish','revoked','cancelled');";
+			$results     = $wpdb->get_row( $total_sql, 0 );
+
+			$this->total = $results->total_payments;
+		}
+
+		$progress = $this->cli->progress_bar( $this->total );
+
+		$payment_ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT ID FROM $wpdb->posts WHERE post_type = 'edd_payment' AND post_status IN ('publish','revoked','cancelled') ORDER BY post_date ASC LIMIT %d,%d;",
+				$this->current_page,
+				$this->per_page
+			)
+		);
+
+		if ( $payment_ids ) {
+
+			foreach ( $payment_ids as $payment_id ) {
+
+				$cancelled    = false;
+				$expiration   = '';
+				$recurring_id = '';
+				$payment      = new EDD_Payment( $payment_id );
+				$profile      = edd_recurring_get_legacy_profile_id( $payment );
+				$cart_details = $payment->cart_details;
+				$download     = reset( $cart_details );
+				$download_id  = $download['id'];
+
+				if ( is_object( $profile ) ) {
+
+					// Stripe gives us a subscription object containing the sub ID, customer ID, and cancelled status
+					$profile_id   = $profile->id;
+					$recurring_id = $profile->customer;
+					$cancelled    = ! empty( $profile->canceled_at );
+					$expiration   = $profile->current_period_end;
+
+				} else {
+					$profile_id   = $profile;
+				}
+
+				if ( empty( $profile_id ) ) {
+					// No subscription ID discovered, skip this payment
+					$this->cli->warning_message( "No subscription ID discovered for EDD Payment $payment_id" );
+					continue;
+				}
+
+				if ( edd_has_variable_prices( $download_id ) ) {
+
+					$price_id  = edd_get_cart_item_price_id( $download );
+					$recurring = edd_recurring()->is_price_recurring( $download_id, $price_id );
+					$times     = edd_recurring()->get_times( $price_id, $download_id );
+					$period    = edd_recurring()->get_period( $price_id, $download_id );
+					$fee       = edd_recurring()->get_signup_fee( $price_id, $download_id );
+
+				} else {
+
+					$recurring = edd_recurring()->is_recurring( $download_id );
+					$times     = edd_recurring()->get_times_single( $download_id );
+					$period    = edd_recurring()->get_period_single( $download_id );
+					$fee       = edd_recurring()->get_signup_fee_single( $download_id );
+
+				}
+
+				if ( ! $recurring ) {
+					$this->cli->warning_message( "Not a recurring product." );
+					continue;
+				}
+
+				if ( empty( $payment->user_id ) ) {
+
+					$user = get_user_by( 'email', $payment->email );
+
+					if ( $user ) {
+						$payment->user_id = $user->ID;
+					} else {
+						remove_all_actions( 'user_register' );
+						$payment->user_id = wp_insert_user( array(
+							'user_email' => $payment->email,
+							'user_login' => $payment->email,
+							'first_name' => $payment->first_name,
+							'last_name'  => $payment->last_name,
+						) );
+					}
+
+					$payment->save();
+				}
+
+				$subscriber = new EDD_Recurring_Subscriber( $payment->user_id, true );
+				$this->cli->warning_message( 'Subscriber object: ', $subscriber );
+
+				if ( ! empty( $recurring_id ) ) {
+					$subscriber->set_recurring_customer_id( $recurring_id, 'stripe' );
+				}
+
+				if ( empty( $expiration ) ) {
+
+					$expiration  = get_user_meta( $payment->user_id, '_edd_recurring_exp', true );
+
+					if ( empty( $expiration ) ) {
+
+						// If no user account existed, we don't know the expiration date
+
+						$child_payments = get_posts( array(
+							'post_type'      => 'edd_payment',
+							'post_status'    => 'edd_subscription',
+							'posts_per_page' => 1,
+							'post_parent'    => $payment_id,
+							'order'          => 'DESC',
+							'orderby'        => 'post_date'
+						) );
+
+						if ( $child_payments ) {
+
+							// Use date of latest renewal payment as base
+							$child_payment = reset( $child_payments );
+							$base = strtotime( $child_payment->post_date );
+
+						} else {
+
+							// Use signup date as base if there are no renewals
+							$base = strtotime( $payment->date );
+
+						}
+
+						$expiration = strtotime( '+ 1 ' . $period . ' 23:59:59', $base );
+
+					}
+
+				}
+
+				switch ( $payment->status ) {
+
+					case 'publish' :
+
+						$status = 'active';
+						break;
+
+					case 'cancelled' :
+					case 'revoked' :
+
+						$status = 'cancelled';
+						break;
+				}
+
+				if ( ! empty( $cancelled ) ) {
+					$status = 'cancelled';
+				}
+
+				$args = array(
+					'product_id'        => $download_id,
+					'period'            => $period,
+					'initial_amount'    => $payment->total,
+					'recurring_amount'  => $payment->total + $fee,
+					'bill_times'        => $times,
+					'parent_payment_id' => $payment_id,
+					'created'           => $payment->date,
+					'gateway'           => $payment->gateway,
+					'expiration'        => date( 'Y-m-d H:i:s', $expiration ),
+					'profile_id'        => $profile_id,
+					'status'            => $status,
+				);
+
+				$subscriber->add_subscription( $args );
+
+				$this->cli->success_message( 'Successfully migrated subscription' );
+
+				edd_update_payment_meta( $payment_id, '_edd_subscription_payment', true );
+
+			}
+		} else {
+			$this->cli->success_message( 'Completed migrating subscriptions' );
+		}
 	}
 
 	public function maybe_migrate_stripe_subscriptions() {
