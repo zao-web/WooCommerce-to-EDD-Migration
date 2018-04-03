@@ -1259,7 +1259,8 @@ class Commands {
 		}
 
 		if ( ! class_exists( 'EDD_Recurring_Stripe' ) ) {
-			return $this->cli->warning_message( 'EDD_Recurring_Stripe class not available. Enable EDD Recurring Payments plugin.' );
+			$this->cli->warning_message( 'EDD_Recurring_Stripe class not available. Enable EDD Recurring Payments plugin.' );
+			return;
 		}
 
 		$edd_recurring_stripe = new EDD_Recurring_Stripe;
@@ -1307,10 +1308,31 @@ class Commands {
 
 			foreach ( $cart_details as $index => $item ) {
 
+				$download = edd_get_download( $item['id'] );
+
+				if ( ! $download->_edd_sl_enabled ) {
+					continue;
+				}
+
+				$prices       = edd_get_variable_prices( $item['id'] );
+				$price_id     = $item['item_number']['options']['price_id'];
+				$price_object = $prices[ $price_id ];
+
+				$is_lifetime = false !== stristr( $price_object['name'], 'lifetime' );
+				$length      = $price_object['times'] . ' ' . $price_object['period'];
+
 				//TODO Support different license lengths.
-				$license = edd_software_licensing()->generate_license( $item['id'], $edd_payment_id, 'default', $item, $index, array(
-					'license_length' => '1 year'
-				) );
+				$license  = ( new \EDD_SL_License() )->create(
+					$item['id'],
+					$edd_payment_id,
+					$price_id,
+					$index,
+					array(
+						'license_length' => $length,
+						'expiration_date' => strtotime( "+$length", $wc_order->get_date_completed()->getTimestamp() ),
+						'is_lifetime'     => $is_lifetime
+					)
+				);
 
 				if ( empty( $license ) ) {
 					$this->cli->warning_message( "WC SL could not be imported" );
