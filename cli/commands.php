@@ -928,6 +928,7 @@ class Commands {
 			remove_action( 'edd_update_payment_status', 'edd_trigger_purchase_receipt', 10 );
 			remove_action( 'edd_complete_purchase'    , 'edd_trigger_purchase_receipt', 999 );
 
+			edd_set_payment_transaction_id( $payment_id, $order->get_transaction_id() );
 			edd_update_payment_status( $payment_id, $status );
 
 			$wc_edd_order_map[ $order_id ] = $payment_id;
