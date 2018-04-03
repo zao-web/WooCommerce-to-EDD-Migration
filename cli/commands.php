@@ -943,9 +943,6 @@ class Commands {
 			edd_set_payment_transaction_id( $payment_id, $order->get_transaction_id() );
 			edd_update_payment_status( $payment_id, $status );
 
-			$order->add_meta_data( 'edd_id', $payment_id );
-			$order->save_meta_data();
-
 			$this->cli->success_message( "WC Order migrated" );
 
 			// Update relevent data.
@@ -989,6 +986,8 @@ class Commands {
 
 			$this->maybe_migrate_licenses( $order, $payment_id );
 
+			$order->add_meta_data( 'edd_id', $payment_id );
+			$order->save_meta_data();
 			$progress->tick();
 
 		}
