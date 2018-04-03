@@ -1320,7 +1320,12 @@ class Commands {
 				$is_lifetime = false !== stristr( $price_object['name'], 'lifetime' );
 				$length      = $price_object['times'] . ' ' . $price_object['period'];
 
-				//TODO Support different license lengths.
+				$date_paid = $wc_order->get_date_completed();
+
+				if ( ! $date_paid ) {
+					$date_paid = $wc_order->get_date_paid();
+				}
+
 				$license  = ( new \EDD_SL_License() )->create(
 					$item['id'],
 					$edd_payment_id,
@@ -1328,7 +1333,7 @@ class Commands {
 					$index,
 					array(
 						'license_length' => $length,
-						'expiration_date' => strtotime( "+$length", $wc_order->get_date_completed()->getTimestamp() ),
+						'expiration_date' => strtotime( "+$length", $date_paid->getTimestamp() ),
 						'is_lifetime'     => $is_lifetime
 					)
 				);
