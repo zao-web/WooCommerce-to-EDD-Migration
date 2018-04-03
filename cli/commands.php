@@ -40,6 +40,7 @@ class Commands {
 
 	public function __construct( $args = array(), $assoc_args = array() ) {
 		$this->cli = new Actions( $args, $assoc_args, self::$log_dir );
+		$this->set_test_mode( $assoc_args );
 	}
 
 	public static function set_log_dir( $log_dir ) {
@@ -92,20 +93,29 @@ class Commands {
 
 		$price_id = 0;
 
-		foreach ( $variable_prices as $price_id => $price ) {
+		foreach ( $variable_prices as $_price_id => $price ) {
 			$price = floatval( $price['amount'] ) + floatval( $price['signup_fee'] );
 
 			if ( $price === $item_subtotal ) {
-				$price_id = $item_subtotal;
+				$price_id = $_price_id;
+				break;
 			}
 		}
 
 		return array( 'quantity' => $item['qty'], 'price_id' => $price_id );
-
 	}
 
 	public function is_renewal_payment( $order ) {
 		return absint( $order->get_meta( '_subscription_renewal' ) );
+	}
+
+	public function set_test_mode( $args ) {
+		if ( isset( $args['test_mode'] ) && 'false' == $args ) {
+			$this->test_mode = false;
+			add_filter( 'edd_is_test_mode', '__return_false' );
+		} else {
+			add_filter( 'edd_is_test_mode', '__return_true' );
+		}
 	}
 
 	/**
