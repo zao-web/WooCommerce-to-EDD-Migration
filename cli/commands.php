@@ -8,6 +8,7 @@ namespace Migrate_Woo\CLI;
  * @todo Update for new WC APIs
  * @todo Support pagination on API calls for large amounts of data.
  * @todo Reviews not mapping
+ * @todo License key expiration and lifetimes not mapping
  * @todo Map subscription
  * @todo support sale price
  * @todo Currently, variation products are not being mapped as part of the product map.
@@ -716,13 +717,18 @@ class Commands {
 		$this->cli->success_message( "WC Orders fetched ..." );
 		$progress = $this->cli->progress_bar( count( $wc_order_list ) );
 
-		$wc_edd_order_map = array();
-
 		foreach ( $wc_order_list as $o ) {
 
 			// WC Order Object
 			$order = new \WC_Order( $o );
 			$order_id = $order->get_id();
+
+			$already_migrated = $order->get_meta( 'edd_id' );
+
+			if ( $already_migrated ) {
+				$this->cli->warning_message( "Order $order_id has already been migrated. See EDD Payment ID# $already_migrated" );
+				continue;
+			}
 
 			$this->cli->success_message( "Order - $order_id" );
 
@@ -931,7 +937,8 @@ class Commands {
 			edd_set_payment_transaction_id( $payment_id, $order->get_transaction_id() );
 			edd_update_payment_status( $payment_id, $status );
 
-			$wc_edd_order_map[ $order_id ] = $payment_id;
+			$order->add_meta_data( 'edd_id', $payment_id );
+			$order->save_meta_data();
 
 			$this->cli->success_message( "WC Order migrated" );
 
