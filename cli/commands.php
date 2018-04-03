@@ -709,7 +709,8 @@ class Commands {
 		$wc_order_list = get_posts( $args );
 
 		if ( empty( $wc_order_list ) ) {
-			$this->cli->warning_message( "No orders to migrate" );
+			$this->reset_pagination_args();
+			return $this->cli->warning_message( "No orders to migrate" );
 		}
 
 		$this->cli->success_message( "WC Orders fetched ..." );
