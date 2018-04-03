@@ -1227,7 +1227,32 @@ class Commands {
 		}
 	}
 
-	public function maybe_migrate_stripe_subscriptions() {
+	/**
+	 * Handle creation of Stripe Product, Plan, and Subscription object.
+	 *
+	 * @param  [type] $order [description]
+	 * @return [type]        [description]
+	 */
+	public function maybe_migrate_stripe_subscriptions( $order ) {
+
+		if ( ! class_exists( '\Stripe\Stripe' ) ) {
+			return $this->cli->warning_message( 'Stripe API is not available. Enable EDD Stripe plugin.' );
+		}
+
+		$payment_method = $order->get_payment_method();
+
+		if ( 'stripe' !== $payment_method ) {
+			return false;
+		}
+
+		if ( ! class_exists( 'EDD_Recurring_Stripe' ) ) {
+			return $this->cli->warning_message( 'EDD_Recurring_Stripe class not available. Enable EDD Recurring Payments plugin.' );
+		}
+
+		$edd_recurring_stripe = new EDD_Recurring_Stripe;
+		$edd_recurring_stripe->init();
+
+	//	$edd_recurring_stripe->create_payment_profiles();
 
 	}
 
