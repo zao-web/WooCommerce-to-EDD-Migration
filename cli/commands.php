@@ -656,7 +656,7 @@ class Commands {
 
 			$data = array(
 				// TODO - Update uses when migrating Orders
-				// 'uses' => {number},
+				'uses'   => $coupon->get_usage_count(),
 				'name'   => $c->post_excerpt,
 				'status' => $status,
 				'code'   => $code,
