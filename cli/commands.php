@@ -1315,10 +1315,15 @@ class Commands {
 
 				$prices       = edd_get_variable_prices( $item['id'] );
 				$price_id     = $item['item_number']['options']['price_id'];
-				$price_object = $prices[ $price_id ];
 
-				$is_lifetime = false !== stristr( $price_object['name'], 'lifetime' );
-				$length      = $price_object['times'] . ' ' . $price_object['period'];
+				if ( isset( $prices[ $price_id ] ) ) {
+					$price_object = $prices[ $price_id ];
+					$is_lifetime = false !== stristr( $price_object['name'], 'lifetime' );
+					$length      = $price_object['times'] . ' ' . $price_object['period'];
+				} else {
+					$is_lifetime = false;
+					$length      = '1 year';
+				}
 
 				$date_paid = $wc_order->get_date_completed();
 
