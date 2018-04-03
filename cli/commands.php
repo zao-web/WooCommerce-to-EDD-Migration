@@ -16,23 +16,27 @@ namespace Migrate_Woo\CLI;
  */
 class Commands {
 
+
+	protected $cli;
+	protected $edd_cat_slug       = 'download_category';
+	protected $wc_cat_slug        = 'product_cat';
+	protected $edd_tag_slug       = 'download_tag';
+	protected $wc_tag_slug        = 'product_tag';
+	protected $wc_edd_cat_map     = array();
+	protected $wc_edd_tag_map     = array();
+	protected $wc_edd_product_map = array();
+	protected $wc_edd_coupon_map  = array();
+	protected $current_page       = 0;
+	protected $per_page           = 400;
+	protected $test_mode          = true;
+	protected $total              = 0;
+
 	/**
 	 * The CLI logs directory.
 	 *
 	 * @var string
 	 */
 	protected static $log_dir = __DIR__;
-	protected $cli;
-	protected $edd_cat_slug = 'download_category';
-	protected $wc_cat_slug  = 'product_cat';
-	protected $edd_tag_slug = 'download_tag';
-	protected $wc_tag_slug  = 'product_tag';
-	protected $wc_edd_cat_map     = array();
-	protected $wc_edd_tag_map     = array();
-	protected $wc_edd_product_map = array();
-	protected $wc_edd_coupon_map = array();
-	protected $current_page       = 0;
-	protected $per_page           = 400;
 
 	public function __construct( $args = array(), $assoc_args = array() ) {
 		$this->cli = new Actions( $args, $assoc_args, self::$log_dir );
