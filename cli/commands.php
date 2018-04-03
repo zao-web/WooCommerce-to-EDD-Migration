@@ -974,9 +974,9 @@ class Commands {
 				$this->cli->success_message( "WC Order Note migrated" );
 			}
 
-			$progress->tick();
-
 			$this->maybe_migrate_licenses( $order, $payment_id );
+
+			$progress->tick();
 
 		}
 
@@ -1050,8 +1050,6 @@ class Commands {
 
 		$this->cli->success_message( "WC SL fetched" );
 
-		$wc_edd_sl_map = array();
-
 		foreach ( $customer_keys as $api_key => $data ) {
 
 			if ( $order_id !== $data['order_id'] ) {
@@ -1067,8 +1065,6 @@ class Commands {
 				return $args;
 			} );
 
-			$progress = $this->cli->progress_bar( count( $cart_details ) );
-
 			foreach ( $cart_details as $index => $item ) {
 
 				//TODO Support different license lengths.
@@ -1076,15 +1072,15 @@ class Commands {
 					'license_length' => '1 year'
 				) );
 
-				if ( ! empty( $license ) ) {
-					$progress->tick();
+				if ( empty( $license ) ) {
+					$this->cli->warning_message( "WC SL could not be imported" );
+				} else {
+					$this->cli->success_message( "WC SL imported" );
 				}
 			}
-
-			$progress->finish();
 		}
 
-		$this->cli->success_message( "WC SL imported" );
+
 	}
 
 	public function maybe_migrate_remaining_users() {
