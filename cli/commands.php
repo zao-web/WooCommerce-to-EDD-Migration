@@ -1319,6 +1319,9 @@ class Commands {
 		if ( is_null( $this->cli ) ) {
 			$this->cli = new Actions( $args, $assoc_args, self::$log_dir );
 		}
+
+		$this->set_test_mode( $assoc_args );
+
 		$this->cli->disable_emails();
 
 		if ( ! is_plugin_active( 'woocommerce/woocommerce.php' ) || ! is_plugin_active( 'easy-digital-downloads/easy-digital-downloads.php' ) ) {
@@ -1347,13 +1350,13 @@ class Commands {
 
 		/**
 		 * Step 4
-		 * Orders Migrate (includes Software Licensing)
+		 * Orders Migrate (includes Software Licensing, PayPal/Stripe recurring info)
 		 */
 		$this->migrate_orders();
 
 		/**
 		 * Step 5
-		 * Migrate WooCommerce Subscriptions to EDD Recurring Payments
+		 * Once orders are migrated, migrate subscriptions (includes Software Licensing, PayPal/Stripe recurring info)
 		 */
 		$this->maybe_migrate_subscriptions();
 
@@ -1361,7 +1364,7 @@ class Commands {
 		 * Step 6
 		 * Check for Stripe Gateways, and confirm migration
 		 */
-		$this->maybe_migrate_stripe_subscriptions();
+		// $this->maybe_migrate_stripe_subscriptions();
 
 		/**
 		 * Step 8
