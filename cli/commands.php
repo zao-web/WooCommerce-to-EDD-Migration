@@ -6,10 +6,11 @@ namespace Migrate_Woo\CLI;
  *
  * @todo Update for new EDD APIs
  * @todo Update for new WC APIs
- * @todo Support pagination on API calls for large amounts of data.
  * @todo Reviews not mapping
  * @todo License key expiration and lifetimes not mapping
- * @todo Map subscription
+ * @todo Map subscriptions (renewals are set as their own sub)
+ * @todo ensure that paypal standard subscription meta is set as EDD Subscriber profile ID.
+ * @todo EDD Subs - I'm seeing today's date as the date created and a year from today as the "Expiration Date" and "Renewal Date"
  * @todo support sale price
  * @todo Currently, variation products are not being mapped as part of the product map.
  *
@@ -27,7 +28,7 @@ class Commands {
 	protected $wc_edd_product_map = array();
 	protected $wc_edd_coupon_map  = array();
 	protected $current_page       = 0;
-	protected $per_page           = 4000;
+	protected $per_page           = 400;
 	protected $test_mode          = false;
 	protected $total              = 0;
 	protected $test_ids           = array( 46129, 43230, 42430, 42427, 42395, 25970 );
@@ -42,6 +43,7 @@ class Commands {
 	public function __construct( $args = array(), $assoc_args = array() ) {
 		$this->cli = new Actions( $args, $assoc_args, self::$log_dir );
 		$this->set_test_mode();
+		add_filter( 'woocommerce_subscriptions_is_duplicate_site', '__return_true' );
 	}
 
 	public static function set_log_dir( $log_dir ) {
@@ -1328,7 +1330,7 @@ class Commands {
 		$status = $sub->get_status();
 
 		if ( 'active' !== $status ) {
-			$this->cli->warning_message( "This WC Subcription is not active, we cannot create a subscription.", $sub );
+			$this->cli->warning_message( "This WC Subcription is not active, we will not create a Stripe subscription.", $sub );
 			return;
 		}
 
@@ -1357,7 +1359,7 @@ class Commands {
 		$errors = edd_get_errors();
 
 		unset( $_POST['edd_stripe_existing_card'] );
-		
+
 		if ( ! empty( $errors ) ) {
 			$this->cli->warning_message( 'Errors: ', $errors );
 		} else {
@@ -1512,6 +1514,6 @@ class Commands {
 	}
 
 	private function reset() {
-		// wp activate stop-emails && wp plugin activate debug-bar && wp plugin activate debug-bar-console && wp plugin deactivate wpmandrill && wp plugin deactivate edd-mail-chimp
+		// wp db reset --yes && wp db import local-2018-03-29-6ea391b.sql && wp plugin activate stop-emails && wp plugin activate debug-bar && wp plugin activate debug-bar-console && wp plugin deactivate wpmandrill && wp plugin deactivate edd-mail-chimp && wp plugin activate wp-cli-woo-to-edd-migration
 	}
 }
