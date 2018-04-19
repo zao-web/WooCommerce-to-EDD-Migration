@@ -1255,8 +1255,8 @@ class Commands {
 
 	public function maybe_migrate_paypal_subscriptions( $edd_payment ) {
 
-		if ( ! class_exists( 'EDD_Recurring_Stripe' ) ) {
-			$this->cli->warning_message( 'EDD_Recurring_Stripe class not available. Enable EDD Recurring Payments plugin.' );
+		if ( ! class_exists( 'EDD_Recurring_Paypal' ) ) {
+			$this->cli->warning_message( 'EDD_Recurring_PayPal class not available. Enable EDD Recurring Payments plugin.' );
 			return;
 		}
 
@@ -1291,7 +1291,7 @@ class Commands {
 		$profile_id = $edd_payment->get_meta( '_edd_subscription_id' );
 
 		if ( empty( $profile_id ) ) {
-			$this->cli->warning_message( "Both Card ID and Source ID are empty, we cannot create a subscription." );
+			$this->cli->warning_message( "PayPal Subscription ID is not set, we cannot migrate this subscription." );
 			return;
 		}
 
@@ -1300,7 +1300,6 @@ class Commands {
 
 			return $args;
 		} );
-
 
 		$this->cli->warning_message( "Fetching WC Subscription." );
 
