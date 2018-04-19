@@ -12,7 +12,6 @@ namespace Migrate_Woo\CLI;
  * @todo ensure that paypal standard subscription meta is set as EDD Subscriber profile ID.
  * @todo EDD Subs - I'm seeing today's date as the date created and a year from today as the "Expiration Date" and "Renewal Date"
  * @todo support sale price
- * @todo Currently, variation products are not being mapped as part of the product map.
  *
  * @link With thanks to https://github.com/rtCamp/woocommerce-to-easydigitaldownloads
  */
@@ -31,7 +30,7 @@ class Commands {
 	protected $per_page           = 400;
 	protected $test_mode          = false;
 	protected $total              = 0;
-	protected $test_ids           = array( 46129, 43230, 42430, 42427, 42395, 25970 );
+	protected $test_ids           = array( 48606, 48596, 46129, 43230, 42430, 42427, 42395, 25970 );
 
 	/**
 	 * The CLI logs directory.
@@ -1014,7 +1013,7 @@ class Commands {
 		}
 
 		if ( 'paypal' === $payment_method ) {
-			$meta_map['Payer PayPal address'] = '_edd_paypal_payer'; // TODO: EDD sets the customer_email to this if it exists.
+			$meta_map['Payer PayPal address']    = '_edd_paypal_payer'; // TODO: EDD sets the customer_email to this if it exists.
 			$meta_map['_paypal_subscription_id'] = '_edd_subscription_id'; //TODO Determine the correct subscription ID meta key here.
 		}
 
@@ -1096,7 +1095,14 @@ class Commands {
 
 				$edd_payment = edd_get_payment( $payment_id );
 
-				$this->maybe_migrate_stripe_subscriptions( $edd_payment );
+				if ( 'stripe' === $edd_payment->gateway ) {
+					$this->maybe_migrate_stripe_subscriptions( $edd_payment );
+				}
+
+				if  ( 'paypal' === $edd_payment->gateway ) {
+					$this->maybe_migrate_paypal_subscriptions( $edd_payment );
+				}
+
 			}
 
 			$this->current_page++;
@@ -1247,6 +1253,97 @@ class Commands {
 		return $subscriber;
 	}
 
+	public function maybe_migrate_paypal_subscriptions( $edd_payment ) {
+
+		if ( ! class_exists( 'EDD_Recurring_Stripe' ) ) {
+			$this->cli->warning_message( 'EDD_Recurring_Stripe class not available. Enable EDD Recurring Payments plugin.' );
+			return;
+		}
+
+		$wc_id = $edd_payment->get_meta( '_wc_order_id' );
+		$ids   = implode( ', ', $this->test_ids );
+
+		if ( ! in_array( $wc_id, $this->test_ids ) ) {
+			$this->cli->warning_message( "Currently, we are only migrating Test IDs. For EDD Payment $edd_payment->ID, the related WC Order is $wc_id, which is not in the test IDs: $ids." );
+			return;
+		}
+
+		$edd_recurring_paypal = new \EDD_Recurring_PayPal;
+		$edd_recurring_paypal->init();
+
+		$edd_recurring_paypal->purchase_data              = apply_filters( 'edd_recurring_purchase_data', $edd_payment->payment_meta );
+		$edd_recurring_paypal->purchase_data['user_email'] = $edd_payment->payment_meta['user_info']['email'];
+
+		$subscriber                        = $this->get_subscriber( $edd_recurring_paypal );
+		$edd_recurring_paypal->customer_id = $subscriber->id;
+
+		$this->cli->warning_message( 'Subscriber object: ', $subscriber );
+
+		$edd_recurring_paypal->subscriptions = $this->get_subscriptions( $edd_payment );
+
+		if ( empty( $edd_recurring_paypal->subscriptions ) ) {
+			$this->cli->warning_message( "Not a recurring order." );
+			return;
+		}
+
+		do_action( 'edd_recurring_pre_create_payment_profiles', $edd_recurring_paypal );
+
+		$profile_id = $edd_payment->get_meta( '_edd_subscription_id' );
+
+		if ( empty( $profile_id ) ) {
+			$this->cli->warning_message( "Both Card ID and Source ID are empty, we cannot create a subscription." );
+			return;
+		}
+
+		add_filter( 'edd_recurring_subscription_pre_gateway_args', function( $args ) use ( $profile_id ) {
+			$args['profile_id'] = $profile_id;
+
+			return $args;
+		} );
+
+
+		$this->cli->warning_message( "Fetching WC Subscription." );
+
+		$subs   = wcs_get_subscriptions_for_order( $wc_id, array( 'order_type' => 'any' ) );
+		$sub    = array_pop( $subs );
+		$status = $sub->get_status();
+
+		if ( 'active' !== $status ) {
+			$this->cli->warning_message( "This WC Subcription is not active, we will not create a Stripe subscription.", $sub );
+			return;
+		}
+
+		// Only create one subscription per order (renewals should not create additional subscriptions)
+		$created = $sub->get_meta( 'edd_paypal_created' );
+
+		if ( $created ) {
+			$this->cli->warning_message( 'This subscription has already been synchronized in PayPal and attached to EDD.' );
+			return;
+		}
+
+		$edd_recurring_paypal->create_payment_profiles();
+
+		do_action( 'edd_recurring_post_create_payment_profiles', $edd_recurring_paypal );
+
+		// Record the subscriptions and finish up
+		$this->record_signup( $edd_payment, $edd_recurring_paypal->subscriptions, $subscriber, $edd_recurring_paypal );
+
+		$errors = edd_get_errors();
+
+		if ( ! empty( $errors ) ) {
+			$this->cli->warning_message( 'Errors: ', $errors );
+		} else {
+
+			$sub->update_status( 'on-hold', __( 'Status set to on-hold, migrated to EDD.' ), true );
+			$sub->add_meta_data( 'edd_paypal_created', current_time( 'timestamp' ) );
+			$sub->save_meta_data();
+
+			$this->cli->success_message( 'Successfully migrated subscription' );
+		}
+
+		$this->cli->confirm( 'Continue on to the next PayPal migration?' );
+	}
+
 	/**
 	 * Handle creation of Stripe Product, Plan, and Subscription object.
 	 *
@@ -1257,10 +1354,6 @@ class Commands {
 
 		if ( ! class_exists( '\Stripe\Stripe' ) ) {
 			return $this->cli->warning_message( 'Stripe API is not available. Enable EDD Stripe plugin.' );
-		}
-
-		if ( 'stripe' !== $edd_payment->gateway ) {
-			return false;
 		}
 
 		if ( ! class_exists( 'EDD_Recurring_Stripe' ) ) {
