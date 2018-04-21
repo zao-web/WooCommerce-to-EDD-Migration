@@ -1172,7 +1172,7 @@ class Commands {
 		return $subscriptions;
 	}
 
-	public function record_signup( $payment, $subscriptions, $subscriber, $stripe ) {
+	public function record_signup( $payment, $subscriptions, $subscriber, $stripe, $next_date ) {
 
 		// Set subscription_payment
 		$payment->update_meta( '_edd_subscription_payment', true );
@@ -1205,7 +1205,7 @@ class Commands {
 				'initial_amount'    => $subscription['initial_amount'],
 				'recurring_amount'  => $subscription['recurring_amount'],
 				'bill_times'        => $subscription['bill_times'],
-				'expiration'        => $subscriber->get_new_expiration( $subscription['id'], $subscription['price_id'], $trial_period ),
+				'expiration'        => $next_date,
 				'trial_period'      => $trial_period,
 				'profile_id'        => $subscription['profile_id'],
 				'transaction_id'    => $subscription['transaction_id'],
@@ -1325,7 +1325,7 @@ class Commands {
 		do_action( 'edd_recurring_post_create_payment_profiles', $edd_recurring_paypal );
 
 		// Record the subscriptions and finish up
-		$this->record_signup( $edd_payment, $edd_recurring_paypal->subscriptions, $subscriber, $edd_recurring_paypal );
+		$this->record_signup( $edd_payment, $edd_recurring_paypal->subscriptions, $subscriber, $edd_recurring_paypal, $sub->get_date( 'next_payment' ) );
 
 		$errors = edd_get_errors();
 
@@ -1444,7 +1444,7 @@ class Commands {
 		do_action( 'edd_recurring_post_create_payment_profiles', $edd_recurring_stripe );
 
 		// Record the subscriptions and finish up
-		$this->record_signup( $edd_payment, $edd_recurring_stripe->subscriptions, $subscriber, $edd_recurring_stripe );
+		$this->record_signup( $edd_payment, $edd_recurring_stripe->subscriptions, $subscriber, $edd_recurring_stripe, $sub->get_date( 'next_payment' ) );
 
 		remove_filter( 'edd_recurring_get_customer_id', $customer_swap, 10, 2 );
 
@@ -1579,7 +1579,8 @@ class Commands {
 						foreach ( $activations as $activation ) {
 							$meta[] = $activation;
 							$license->add_site( $activation['activation_domain'] );
-							$license->set_status( 'active' );
+							$status =  (bool) $activation['activation_active'] ? 'active' : 'inactive';
+							$license->set_status( $status );
 							$this->cli->success_message( "Activated license for " .  $activation['activation_domain'] );
 						}
 
