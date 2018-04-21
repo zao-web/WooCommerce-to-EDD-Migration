@@ -1579,6 +1579,7 @@ class Commands {
 						foreach ( $activations as $activation ) {
 							$meta[] = $activation;
 							$license->add_site( $activation['activation_domain'] );
+							$license->set_status( 'active' );
 							$this->cli->success_message( "Activated license for " .  $activation['activation_domain'] );
 						}
 
