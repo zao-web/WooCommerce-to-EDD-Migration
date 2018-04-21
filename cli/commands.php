@@ -519,7 +519,7 @@ class Commands {
 				$edd_dl_expiry_length_slug = "_edd_sl_exp_length";
 
 				update_post_meta( $edd_product_id, $edd_dl_expiry_length_slug, get_post_meta( $product_id, $wc_dl_expiry_slug, true ) );
-				update_post_meta( $edd_product_id, $edd_dl_expiry_unit_slug, 'days' );
+				update_post_meta( $edd_product_id, $edd_dl_expiry_unit_slug, 'years' );
 
 				$this->cli->success_message( "WC Download Expiry : " . get_post_meta( $product_id, $wc_dl_expiry_slug, true ) . " migrated ..." );
 			}
