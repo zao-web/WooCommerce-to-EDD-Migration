@@ -9,8 +9,6 @@ namespace Migrate_Woo\CLI;
  * @todo Reviews not mapping
  * @todo License key expiration and lifetimes not mapping
  * @todo Map subscriptions (renewals are set as their own sub)
- * @todo ensure that paypal standard subscription meta is set as EDD Subscriber profile ID.
- * @todo EDD Subs - I'm seeing today's date as the date created and a year from today as the "Expiration Date" and "Renewal Date"
  * @todo support sale price
  *
  * @link With thanks to https://github.com/rtCamp/woocommerce-to-easydigitaldownloads
@@ -1580,7 +1578,11 @@ class Commands {
 							$meta[] = $activation;
 							$license->add_site( $activation['activation_domain'] );
 							$status =  (bool) $activation['activation_active'] ? 'active' : 'inactive';
-							$license->set_status( $status );
+
+							if ( 'active' === $status ) {
+								$license->enable();
+							}
+
 							$this->cli->success_message( "Activated license for " .  $activation['activation_domain'] );
 						}
 
