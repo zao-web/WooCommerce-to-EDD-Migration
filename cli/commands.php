@@ -1480,10 +1480,19 @@ class Commands {
 			return $this->cli->warning_message( 'This order has no API product.' );
 		}
 
+		global $wpdb;
+
 		$user_id       = $wc_order->get_customer_id();
 		$order_id      = $wc_order->get_id();
 		$customer_keys = WC_AM_Helpers()->get_users_data( $wc_order->get_customer_id() );
-		$cart_details  = edd_get_payment( $edd_payment_id )->cart_details;
+		$edd_payment   = edd_get_payment( $edd_payment_id );
+		$cart_details  = $edd_payment->cart_details;
+
+		$activations = get_user_meta( $user_id, $wpdb->get_blog_prefix() . WC_AM_HELPERS()->user_meta_key_activations . $wc_order->get_order_key() );
+
+		if ( ! empty( $activations ) ) {
+			$activations = $activations[0];
+		}
 
 		$this->cli->success_message( "WC SL fetched" );
 
@@ -1528,6 +1537,18 @@ class Commands {
 					$date_paid = $wc_order->get_date_paid();
 				}
 
+				$hash = md5( json_encode( array( 'item_id' => $item['id'], 'args' => array(
+					'license_length' => $length,
+					'expiration_date' => strtotime( "+$length", $date_paid->getTimestamp() ),
+					'is_lifetime'     => $is_lifetime
+				) ) ) );
+
+				$migrated_licenses = (array) $edd_payment->get_meta( 'edd_sl_migrated' );
+
+				if ( in_array( $hash, $migrated_licenses ) ) {
+					continue;
+				}
+
 				$license  = ( new \EDD_SL_License() )->create(
 					$item['id'],
 					$edd_payment_id,
@@ -1543,7 +1564,27 @@ class Commands {
 				if ( empty( $license ) ) {
 					$this->cli->warning_message( "WC SL could not be imported" );
 				} else {
+					$migrated_licenses[] = $hash;
+					$edd_payment->update_meta( 'edd_sl_migrated', $migrated_licenses );
 					$this->cli->success_message( "WC SL imported" );
+
+					if ( ! empty( $activations ) ) {
+						$this->cli->success_message( "Activating license for " . count( $activations ) . ' sites.' );
+
+						$license_id = array_pop( $license );
+						$license =  ( new \EDD_SL_License( $license_id ) );
+
+						$meta = [];
+
+						foreach ( $activations as $activation ) {
+							$meta[] = $activation;
+							$license->add_site( $activation['activation_domain'] );
+							$this->cli->success_message( "Activated license for " .  $activation['activation_domain'] );
+						}
+
+						$license->update_meta( 'edd_historical_wcam_data', $meta );
+					}
+
 				}
 			}
 		}
