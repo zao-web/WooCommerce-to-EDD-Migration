@@ -10,6 +10,7 @@ namespace Migrate_Woo\CLI;
  * @todo License key expiration and lifetimes not mapping
  * @todo Map subscriptions (renewals are set as their own sub)
  * @todo support sale price
+ * @todo Add metadata cleanup routine.
  *
  * @link With thanks to https://github.com/rtCamp/woocommerce-to-easydigitaldownloads
  */
@@ -25,10 +26,10 @@ class Commands {
 	protected $wc_edd_product_map = array();
 	protected $wc_edd_coupon_map  = array();
 	protected $current_page       = 0;
-	protected $per_page           = 400;
+	protected $per_page           = 100;
 	protected $test_mode          = false;
 	protected $total              = 0;
-	protected $test_ids           = array( 48606, 48596, 46129, 43230, 42430, 42427, 42395, 25970 );
+	protected $test_ids           = array();
 
 	/**
 	 * The CLI logs directory.
@@ -1171,6 +1172,12 @@ class Commands {
 	}
 
 	public function record_signup( $payment, $subscriptions, $subscriber, $stripe, $next_date ) {
+		$has_recorded = $edd_payment->get_meta( '_edd_subscription_payment' );
+
+		if ( $has_recorded ) {
+			$this->cli->success_message( 'Already recorded subscripton, returning early.' );
+			return;
+		}
 
 		// Set subscription_payment
 		$payment->update_meta( '_edd_subscription_payment', true );
@@ -1259,11 +1266,14 @@ class Commands {
 		}
 
 		$wc_id = $edd_payment->get_meta( '_wc_order_id' );
-		$ids   = implode( ', ', $this->test_ids );
 
-		if ( ! in_array( $wc_id, $this->test_ids ) ) {
-			$this->cli->warning_message( "Currently, we are only migrating Test IDs. For EDD Payment $edd_payment->ID, the related WC Order is $wc_id, which is not in the test IDs: $ids." );
-			return;
+		if ( ! empty( $this->test_ids ) ) {
+			$ids   = implode( ', ', $this->test_ids );
+
+			if ( ! in_array( $wc_id, $this->test_ids ) ) {
+				$this->cli->warning_message( "Currently, we are only migrating Test IDs. For EDD Payment $edd_payment->ID, the related WC Order is $wc_id, which is not in the test IDs: $ids." );
+				return;
+			}
 		}
 
 		$edd_recurring_paypal = new \EDD_Recurring_PayPal;
@@ -1359,11 +1369,14 @@ class Commands {
 		}
 
 		$wc_id = $edd_payment->get_meta( '_wc_order_id' );
-		$ids   = implode( ', ', $this->test_ids );
 
-		if ( ! in_array( $wc_id, $this->test_ids ) ) {
-			$this->cli->warning_message( "Currently, we are only migrating Test IDs. For EDD Payment $edd_payment->ID, the related WC Order is $wc_id, which is not in the test IDs: $ids." );
-			return;
+		if ( ! empty( $this->test_ids ) ) {
+			$ids   = implode( ', ', $this->test_ids );
+
+			if ( ! in_array( $wc_id, $this->test_ids ) ) {
+				$this->cli->warning_message( "Currently, we are only migrating Test IDs. For EDD Payment $edd_payment->ID, the related WC Order is $wc_id, which is not in the test IDs: $ids." );
+				return;
+			}
 		}
 
 		$edd_recurring_stripe = new \EDD_Recurring_Stripe;
@@ -1651,6 +1664,8 @@ class Commands {
 	}
 
 	private function reset() {
-		// wp db reset --yes && wp db import local-2018-03-29-6ea391b.sql && wp plugin activate stop-emails && wp plugin activate debug-bar && wp plugin activate debug-bar-console && wp plugin deactivate wpmandrill && wp plugin deactivate edd-mail-chimp && wp plugin activate wp-cli-woo-to-edd-migration
+		// wp plugin install --force --activate stop-emails && wp plugin deactivate wpmandrill && wp plugin deactivate edd-mail-chimp && wp plugin activate wp-cli-woo-to-edd-migration
+		// wp migrate_woo migrate
+		// wp db reset --yes && wp db import local-2018-03-29-6ea391b.sql && wp plugin install --force --activate stop-emails && wp plugin deactivate wpmandrill && wp plugin deactivate edd-mail-chimp && wp plugin activate wp-cli-woo-to-edd-migration
 	}
 }
